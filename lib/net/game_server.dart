@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui';
 
 import '../game/constants.dart';
 import '../game/sim.dart';
@@ -50,6 +51,8 @@ class GameServer {
   int loot = 1;
   bool friendlyFire = false;
   bool respawn = false;
+  bool hostInfiniteInvisibilityEnabled = false;
+  bool hostSeeAllPlayersEnabled = false;
 
   bool started = false;
   bool paused = false;
@@ -68,6 +71,40 @@ class GameServer {
   bool get isEmpty => _peers.isEmpty;
   int get totalPlayers =>
       sim?.players.length ?? (_peers.length + botCount).clamp(0, kMaxPlayers);
+
+  bool setHostInfiniteInvisibility(int requesterId, bool enabled) {
+    if (requesterId != hostId) return false;
+    hostInfiniteInvisibilityEnabled = enabled;
+    final player = sim?.players[hostId];
+    if (player != null) {
+      player.hostInfiniteInvisibility = enabled;
+      if (!enabled) player.ghostTime = 0;
+    }
+    return true;
+  }
+
+  bool setHostSeeAllPlayers(int requesterId, bool enabled) {
+    if (requesterId != hostId) return false;
+    hostSeeAllPlayersEnabled = enabled;
+    return true;
+  }
+
+  bool teleportHost(int requesterId, double x, double y) {
+    if (requesterId != hostId || !x.isFinite || !y.isFinite) return false;
+    final live = sim;
+    final player = live?.players[hostId];
+    if (!started ||
+        player == null ||
+        !player.alive ||
+        live!.maze.circleHitsWall(x, y, kPlayerRadius)) {
+      return false;
+    }
+    player
+      ..pos = Offset(x, y)
+      ..vx = 0
+      ..vy = 0;
+    return true;
+  }
 
   static String _randomRoomId() {
     final rng = math.Random();
@@ -411,6 +448,10 @@ class GameServer {
       loot: loot,
       respawn: respawn,
     );
+    final hostPlayer = sim!.players[hostId];
+    if (hostPlayer != null) {
+      hostPlayer.hostInfiniteInvisibility = hostInfiniteInvisibilityEnabled;
+    }
     started = true;
     paused = false;
     for (final peer in _peers.values) {
@@ -500,6 +541,7 @@ class GameServer {
         peer.id,
         events,
         spectateId: peer.spectateId,
+        revealAllPlayers: peer.id == hostId && hostSeeAllPlayersEnabled,
       );
       _send(peer.id, snapshot.toJson());
     }

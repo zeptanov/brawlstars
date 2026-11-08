@@ -78,6 +78,8 @@ class GameHud extends StatelessWidget {
     required this.banners,
     required this.touchControls,
     required this.scoreboardVisible,
+    this.isHost = false,
+    this.onHostTools,
     required this.onPause,
     required this.onToggleScoreboard,
     required this.onToggleControls,
@@ -93,6 +95,8 @@ class GameHud extends StatelessWidget {
   final List<HudBanner> banners;
   final bool touchControls;
   final bool scoreboardVisible;
+  final bool isHost;
+  final VoidCallback? onHostTools;
   final VoidCallback onPause;
   final VoidCallback onToggleScoreboard;
   final VoidCallback onToggleControls;
@@ -118,12 +122,14 @@ class GameHud extends StatelessWidget {
                 _MatchBar(vm: vm, compact: compact),
                 const Spacer(),
                 _TopButtons(
-                  size: compact ? 38 : 42,
+                  size: compact ? (isHost ? 34 : 38) : 42,
                   scoreboardVisible: scoreboardVisible,
                   touchControls: touchControls,
+                  isHost: isHost,
                   onPause: onPause,
                   onScoreboard: onToggleScoreboard,
                   onToggleControls: onToggleControls,
+                  onHostTools: onHostTools,
                 ),
               ],
             ),
@@ -329,17 +335,21 @@ class _TopButtons extends StatelessWidget {
     required this.size,
     required this.scoreboardVisible,
     required this.touchControls,
+    required this.isHost,
     required this.onPause,
     required this.onScoreboard,
     required this.onToggleControls,
+    this.onHostTools,
   });
 
   final double size;
   final bool scoreboardVisible;
   final bool touchControls;
+  final bool isHost;
   final VoidCallback onPause;
   final VoidCallback onScoreboard;
   final VoidCallback onToggleControls;
+  final VoidCallback? onHostTools;
 
   @override
   Widget build(BuildContext context) {
@@ -363,6 +373,15 @@ class _TopButtons extends StatelessWidget {
           onPressed: onToggleControls,
         ),
         const SizedBox(width: 6),
+        if (isHost && onHostTools != null) ...<Widget>[
+          _HudIcon(
+            icon: Icons.science_outlined,
+            size: size,
+            tooltip: 'Инструменты хоста',
+            onPressed: onHostTools!,
+          ),
+          const SizedBox(width: 6),
+        ],
         _HudIcon(
           icon: Icons.pause_rounded,
           size: size,
@@ -1465,8 +1484,8 @@ class ResultsOverlay extends StatelessWidget {
                       Text(
                         snapshot.teams && myTeam >= 0
                             ? 'Команда ${myTeam + 1} · '
-                                '${myRow.kills} убийств · '
-                                '${myRow.damage.round()} урона'
+                                  '${myRow.kills} убийств · '
+                                  '${myRow.damage.round()} урона'
                             : 'Вы заняли ${myRow.placement}-е место · '
                                 '${myRow.kills} убийств · '
                                 '${myRow.damage.round()} урона',
@@ -1512,8 +1531,8 @@ class ResultsOverlay extends StatelessWidget {
                                 : 'В меню',
                             subtitle: lobbyMode
                                 ? (canLobby
-                                    ? 'Сменить настройки комнаты'
-                                    : 'Хост вернёт всех в лобби')
+                                      ? 'Сменить настройки комнаты'
+                                      : 'Хост вернёт всех в лобби')
                                 : 'Вернуться в главное меню',
                             icon: lobbyMode
                                 ? Icons.meeting_room_outlined
@@ -1594,7 +1613,9 @@ class _ResultRowView extends StatelessWidget {
         ? Palette.gold
         : (row.placement == 2
             ? const Color(0xFFC7D3E3)
-            : (row.placement == 3 ? const Color(0xFFD79A6A) : Palette.mutedDark));
+            : (row.placement == 3
+                ? const Color(0xFFD79A6A)
+                : Palette.mutedDark));
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),

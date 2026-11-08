@@ -96,6 +96,7 @@ class GameViewModel {
   double shake = 0;
   bool spectator = false;
   bool observerFog = false;
+  bool hostNoFog = false;
   int spectateTargetId = 0;
   double myAim = 0;
   bool showShake = true;

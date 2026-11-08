@@ -76,7 +76,14 @@ class ArenaPainter extends CustomPainter {
       _drawMemory(canvas, maze, explored, minX, maxX, minY, maxY);
     }
 
-    if (spectator) {
+    if (vm.hostNoFog) {
+      _drawTiles(canvas, maze, minX, maxX, minY, maxY);
+      _drawZone(canvas, view);
+      _drawPickups(canvas, view);
+      _drawBullets(canvas, view);
+      _drawPlayers(canvas, view);
+      _drawEffects(canvas);
+    } else if (spectator) {
       if (vm.observerFog && focus != null) {
         final vision = _buildVision(maze, focus.pos);
         canvas.save();

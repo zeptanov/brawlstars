@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:maze_royale/game/constants.dart';
 import 'package:maze_royale/net/game_server.dart';
@@ -78,6 +80,31 @@ void main() {
 
       server.startMatch();
       expect(server.sim?.respawn, isTrue);
+    });
+
+    test('чит-инструменты доступны только хосту и телепортируют по свободной точке', () {
+      final server = GameServer(roomName: 'T', hostName: 'Host');
+      addTearDown(server.dispose);
+      final hostId = server.addPeer(name: 'Host', local: true, send: (_) {});
+      final guestId = server.addPeer(name: 'Guest', local: false, send: (_) {});
+      server.botCount = 1;
+      server.startMatch();
+
+      expect(server.setHostInfiniteInvisibility(guestId, true), isFalse);
+      expect(server.setHostSeeAllPlayers(guestId, true), isFalse);
+      expect(server.teleportHost(guestId, 100, 100), isFalse);
+
+      expect(server.setHostInfiniteInvisibility(hostId, true), isTrue);
+      expect(server.sim!.players[hostId]!.hostInfiniteInvisibility, isTrue);
+      expect(server.setHostSeeAllPlayers(hostId, true), isTrue);
+
+      final destination = server.sim!.maze.randomFloorPoint(math.Random(3));
+      expect(
+        server.teleportHost(hostId, destination.dx, destination.dy),
+        isTrue,
+      );
+      expect(server.sim!.players[hostId]!.pos, destination);
+      expect(server.teleportHost(hostId, double.nan, 0), isFalse);
     });
   });
 }

@@ -79,6 +79,7 @@ class _GameScreenState extends State<GameScreen>
   bool _recordedResult = false;
   int _sentSpectate = 0;
   bool _awaitingLobby = false;
+  bool _teleportArmed = false;
 
   double _hitAt = -10;
   double _killAt = -10;
@@ -158,6 +159,8 @@ class _GameScreenState extends State<GameScreen>
       _onNewWorld();
     }
     _vm.myId = client.id;
+    _vm.hostNoFog =
+        client.isHost && widget.room.server?.hostSeeAllPlayersEnabled == true;
     _vm.showShake = _settings.screenShake;
     _vm.rayCount = _settings.fogRays;
 
@@ -601,8 +604,17 @@ class _GameScreenState extends State<GameScreen>
     final key = event.logicalKey;
     if (event is KeyDownEvent) {
       _pressed.add(key);
+      if (event.physicalKey == PhysicalKeyboardKey.keyT &&
+          _client.isHost &&
+          !_menuOpen &&
+          !_resultsVisible) {
+        _performHostTeleport(_pointer);
+        return KeyEventResult.handled;
+      }
       if (key == LogicalKeyboardKey.escape) {
-        if (_menuOpen) {
+        if (_teleportArmed) {
+          setState(() => _teleportArmed = false);
+        } else if (_menuOpen) {
           _resume();
         } else if (!_resultsVisible) {
           _openMenu();
@@ -681,6 +693,12 @@ class _GameScreenState extends State<GameScreen>
 
   void _onPointerDown(PointerDownEvent event) {
     _focusNode.requestFocus();
+    if (_teleportArmed &&
+        (event.kind != PointerDeviceKind.mouse ||
+            event.buttons & kPrimaryMouseButton != 0)) {
+      _performHostTeleport(event.localPosition);
+      return;
+    }
     if (event.kind == PointerDeviceKind.mouse) {
       _setPointer(event.localPosition);
       if (event.buttons & kPrimaryMouseButton != 0) {
@@ -693,6 +711,87 @@ class _GameScreenState extends State<GameScreen>
       _aimAt(event.localPosition);
       _touchFire = true;
     }
+  }
+
+  void _performHostTeleport(Offset localPosition) {
+    final server = widget.room.server;
+    final client = _client;
+    final world = _vm.screenToWorld(localPosition);
+    final moved =
+        client.isHost &&
+        server?.teleportHost(client.id, world.dx, world.dy) == true;
+    setState(() {
+      _teleportArmed = false;
+      _mouseFire = false;
+    });
+    if (!moved && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Нельзя телепортироваться в стену')),
+      );
+    }
+  }
+
+  Future<void> _showHostTools() async {
+    final server = widget.room.server;
+    final client = _client;
+    if (!client.isHost || server == null) return;
+
+    var infiniteInvisibility = server.hostInfiniteInvisibilityEnabled;
+    var seeAllPlayers = server.hostSeeAllPlayersEnabled;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Инструменты хоста'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Бесконечная невидимость'),
+                value: infiniteInvisibility,
+                onChanged: (value) =>
+                    setDialogState(() => infiniteInvisibility = value ?? false),
+              ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Видеть всех игроков сквозь туман'),
+                value: seeAllPlayers,
+                onChanged: (value) =>
+                    setDialogState(() => seeAllPlayers = value ?? false),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Телепорт: выбери свободную точку на арене.',
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Отмена'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'teleport'),
+              child: const Text('Телепорт'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, 'done'),
+              child: const Text('Готово'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted || result == null) return;
+    server.setHostInfiniteInvisibility(client.id, infiniteInvisibility);
+    server.setHostSeeAllPlayers(client.id, seeAllPlayers);
+    setState(() {
+      _vm.hostNoFog = seeAllPlayers;
+      _teleportArmed = result == 'teleport';
+    });
   }
 
   void _onPointerMove(PointerMoveEvent event) {
@@ -974,12 +1073,40 @@ class _GameScreenState extends State<GameScreen>
                     touchControls: _touchControls,
                     scoreboardVisible: _scoreboard,
                     compact: compact,
+                    isHost: client.isHost,
+                    onHostTools: _showHostTools,
                     onPause: _openMenu,
                     onToggleScoreboard: () {
                       setState(() => _scoreboard = !_scoreboard);
                     },
                     onToggleControls: _toggleControls,
                   ),
+                  if (_teleportArmed)
+                    Positioned(
+                      top: compact ? 58 : 66,
+                      left: 12,
+                      right: 12,
+                      child: Center(
+                        child: Material(
+                          color: Palette.surfaceAlt,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 9,
+                            ),
+                            child: Text(
+                              'ТЕЛЕПОРТ · нажми на свободное место · Esc — отмена',
+                              style: const TextStyle(
+                                color: Palette.accent,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   if (_touchControls &&
                       !_vm.spectator &&
                       !results &&

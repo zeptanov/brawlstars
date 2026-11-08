@@ -56,6 +56,7 @@ class SimPlayer {
   double dashTime = 0;
   double speedTime = 0;
   double ghostTime = 0;
+  bool hostInfiniteInvisibility = false;
   double radarTime = 0;
 
   double vx = 0;
@@ -408,7 +409,11 @@ class GameSim {
     p.dashCooldown = math.max(0, p.dashCooldown - dt);
     p.dashTime = math.max(0, p.dashTime - dt);
     p.speedTime = math.max(0, p.speedTime - dt);
-    p.ghostTime = math.max(0, p.ghostTime - dt);
+    if (p.hostInfiniteInvisibility) {
+      p.ghostTime = 7;
+    } else {
+      p.ghostTime = math.max(0, p.ghostTime - dt);
+    }
     p.radarTime = math.max(0, p.radarTime - dt);
     p.aim = p.input.aim;
 
@@ -911,6 +916,7 @@ class GameSim {
     int observerId,
     List<GameEvent> tickEvents, {
     int spectateId = 0,
+    bool revealAllPlayers = false,
   }) {
     final observer = players[observerId];
     final dead = observer == null || !observer.alive;
@@ -931,6 +937,7 @@ class GameSim {
       final visible =
           isSelf ||
           ally ||
+          revealAllPlayers ||
           (p.alive &&
               _canSee(
                 viewer,

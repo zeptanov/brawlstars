@@ -285,5 +285,58 @@ void main() {
       final snap = sim.buildSnapshot(1, sim.takeEvents());
       expect(snap.playerById(2), isNull);
     });
+
+    test('режим просмотра без тумана включает всех игроков в снимок', () {
+      final sim = GameSim(
+        seed: 4141,
+        mapSize: 61,
+        specs: const <PlayerSpec>[
+          PlayerSpec(id: 1, name: 'A', isBot: false),
+          PlayerSpec(id: 2, name: 'B', isBot: false),
+        ],
+        tempo: 0,
+        botSkill: 1,
+      );
+      final a = sim.players[1]!;
+      final b = sim.players[2]!;
+      var farPoint = sim.maze.randomFloorPoint(math.Random(42));
+      for (
+        var i = 0;
+        i < 50 && (farPoint - a.pos).distance < kVisionRadius * 2;
+        i++
+      ) {
+        farPoint = sim.maze.randomFloorPoint(math.Random(i + 100));
+      }
+      b.pos = farPoint;
+      expect((farPoint - a.pos).distance, greaterThan(kVisionRadius));
+
+      expect(sim.buildSnapshot(1, const []).playerById(2), isNull);
+      expect(
+        sim.buildSnapshot(1, const [], revealAllPlayers: true).playerById(2),
+        isNotNull,
+      );
+    });
+
+    test('бесконечная невидимость не истекает во время матча', () {
+      final sim = GameSim(
+        seed: 7777,
+        mapSize: 41,
+        specs: const <PlayerSpec>[
+          PlayerSpec(id: 1, name: 'A', isBot: false),
+          PlayerSpec(id: 2, name: 'B', isBot: false),
+        ],
+        tempo: 0,
+        botSkill: 1,
+      );
+      final host = sim.players[1]!..hostInfiniteInvisibility = true;
+      sim.phase = MatchPhase.running;
+
+      for (var i = 0; i < (10 / kSimDt).round(); i++) {
+        sim.step(kSimDt);
+      }
+
+      expect(host.alive, isTrue);
+      expect(host.ghostTime, greaterThan(6.9));
+    });
   });
 }
