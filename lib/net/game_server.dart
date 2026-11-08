@@ -28,7 +28,7 @@ class GameServer {
     required this.roomName,
     required this.hostName,
     this.allowPause = false,
-  })  : roomId = _randomRoomId();
+  }) : roomId = _randomRoomId();
 
   final String roomName;
   final String hostName;
@@ -119,12 +119,14 @@ class GameServer {
     if (started && sim != null) {
       final phase = sim!.phase;
       if (phase != MatchPhase.finished) {
-        sim!.addPlayer(PlayerSpec(
-          id: id,
-          name: peer.name,
-          isBot: false,
-          team: _teamForJoin(),
-        ));
+        sim!.addPlayer(
+          PlayerSpec(
+            id: id,
+            name: peer.name,
+            isBot: false,
+            team: _teamForJoin(),
+          ),
+        );
         _broadcast({'t': 'notice', 'm': '${peer.name} подключился к бою'});
         _broadcastLobby();
       }
@@ -249,8 +251,10 @@ class GameServer {
         teams = ((message['n'] as num?)?.toInt() ?? (teams ? 1 : 0)) == 1;
         _broadcastLobby();
       case 'death':
-        deathVision =
-            ((message['n'] as num?)?.toInt() ?? deathVision).clamp(0, 1);
+        deathVision = ((message['n'] as num?)?.toInt() ?? deathVision).clamp(
+          0,
+          1,
+        );
         _broadcastLobby();
       case 'loot':
         loot = ((message['n'] as num?)?.toInt() ?? loot).clamp(0, 2);
@@ -260,8 +264,7 @@ class GameServer {
             ((message['n'] as num?)?.toInt() ?? (friendlyFire ? 1 : 0)) == 1;
         _broadcastLobby();
       case 'respawn':
-        respawn =
-            ((message['n'] as num?)?.toInt() ?? (respawn ? 1 : 0)) == 1;
+        respawn = ((message['n'] as num?)?.toInt() ?? (respawn ? 1 : 0)) == 1;
         _broadcastLobby();
       case 'lobby':
         if (!started) return;
@@ -450,7 +453,10 @@ class GameServer {
     _lastElapsed = Duration.zero;
     _simAccum = 0;
     _snapAccum = kSnapshotInterval;
-    _ticker = Timer.periodic(const Duration(milliseconds: 16), (_) => _onTick());
+    _ticker = Timer.periodic(
+      const Duration(milliseconds: 16),
+      (_) => _onTick(),
+    );
   }
 
   void _ensureHeartbeat() {
@@ -519,7 +525,8 @@ class GameServer {
     }
   }
 
-  Map<String, dynamic> discoveryPayload({required int port}) => <String, dynamic>{
+  Map<String, dynamic> discoveryPayload({required int port}) =>
+      <String, dynamic>{
         't': 'disc',
         'ver': kProtocolVersion,
         'id': roomId,

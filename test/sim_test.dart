@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:maze_royale/game/constants.dart';
 import 'package:maze_royale/game/sim.dart';
@@ -52,8 +53,8 @@ void main() {
       var placed = false;
       for (var i = 0; i < 32 && !placed; i++) {
         final angle = i * math.pi / 16;
-        final target = a.pos +
-            Offset(math.cos(angle) * 80, math.sin(angle) * 80);
+        final target =
+            a.pos + Offset(math.cos(angle) * 80, math.sin(angle) * 80);
         if (!sim.maze.isOpenWorld(target.dx, target.dy)) continue;
         if (!sim.maze.lineOfSight(a.pos.dx, a.pos.dy, target.dx, target.dy)) {
           continue;
@@ -95,8 +96,11 @@ void main() {
         sim.step(kSimDt);
         steps++;
       }
-      expect(sim.phase, MatchPhase.finished,
-          reason: 'боты не закончили матч за 320 секунд');
+      expect(
+        sim.phase,
+        MatchPhase.finished,
+        reason: 'боты не закончили матч за 320 секунд',
+      );
       expect(sim.results.length, 4);
       expect(sim.aliveCount, lessThanOrEqualTo(1));
       final snap = sim.buildSnapshot(1, sim.takeEvents());
@@ -155,32 +159,73 @@ void main() {
         sim.step(kSimDt);
         steps++;
       }
-      expect(sim.phase, MatchPhase.finished,
-          reason: 'командный матч ботов не закончился за 320 секунд');
+      expect(
+        sim.phase,
+        MatchPhase.finished,
+        reason: 'командный матч ботов не закончился за 320 секунд',
+      );
       expect(sim.winTeam, anyOf(0, 1));
       final snap = sim.buildSnapshot(1, sim.takeEvents());
       expect(snap.teams, isTrue);
       expect(snap.winTeam, sim.winTeam);
       expect(snap.results.length, 4);
-      final winners =
-          snap.results.where((r) => r.team == snap.winTeam).toList();
+      final winners = snap.results
+          .where((r) => r.team == snap.winTeam)
+          .toList();
       expect(winners, isNotEmpty);
       expect(winners.every((r) => r.placement == 1), isTrue);
     });
 
+    test('возрождение включается по настройке и ждёт живого союзника', () {
+      final sim = GameSim(
+        seed: 2026,
+        mapSize: 41,
+        specs: const <PlayerSpec>[
+          PlayerSpec(id: 1, name: 'A', isBot: false, team: 0),
+          PlayerSpec(id: 2, name: 'B', isBot: false, team: 0),
+          PlayerSpec(id: 3, name: 'C', isBot: false, team: 1),
+          PlayerSpec(id: 4, name: 'D', isBot: false, team: 1),
+        ],
+        tempo: 0,
+        botSkill: 1,
+        teams: true,
+        respawn: true,
+      );
+      sim.phase = MatchPhase.running;
+      sim.matchTime = 3;
+      final player = sim.players[1]!
+        ..alive = false
+        ..respawnAt = sim.matchTime + kRespawnDelay;
+
+      final waiting = Snapshot.fromJson(
+        sim.buildSnapshot(1, sim.takeEvents()).toJson(),
+      );
+      expect(waiting.respawn, isTrue);
+      expect(waiting.respawnRemaining, closeTo(kRespawnDelay, 0.1));
+
+      for (var i = 0; i < (kRespawnDelay / kSimDt).ceil() + 2; i++) {
+        sim.step(kSimDt);
+      }
+
+      expect(player.alive, isTrue);
+      expect(player.hp, kMaxHp);
+      expect(player.respawnAt, 0);
+      expect(sim.takeEvents().whereType<RespawnEvent>(), hasLength(1));
+    });
+
     test('мёртвый наблюдатель: туман вокруг цели или вся карта', () {
       GameSim make(int vision) => GameSim(
-            seed: 31337,
-            mapSize: 61,
-            specs: const <PlayerSpec>[
-              PlayerSpec(id: 1, name: 'A', isBot: false),
-              PlayerSpec(id: 2, name: 'B', isBot: false),
-              PlayerSpec(id: 3, name: 'C', isBot: false),
-            ],
-            tempo: 0,
-            botSkill: 1,
-            deathVision: vision,
-          );
+        seed: 31337,
+        mapSize: 61,
+        specs: const <PlayerSpec>[
+          PlayerSpec(id: 1, name: 'A', isBot: false),
+          PlayerSpec(id: 2, name: 'B', isBot: false),
+          PlayerSpec(id: 3, name: 'C', isBot: false),
+        ],
+        tempo: 0,
+        botSkill: 1,
+        deathVision: vision,
+      );
 
       GameSim prepare(int vision) {
         final sim = make(vision);

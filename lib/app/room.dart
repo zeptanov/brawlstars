@@ -45,10 +45,7 @@ class Room {
   }
 
   static Future<Room> host({required String nickname}) async {
-    final server = GameServer(
-      roomName: 'Логово $nickname',
-      hostName: nickname,
-    );
+    final server = GameServer(roomName: 'Логово $nickname', hostName: nickname);
     LanHostHandle? handle;
     GameClient? client;
     try {
@@ -106,7 +103,9 @@ class Room {
       client = GameClient(link: link, playerName: nickname);
       final ok = await client.connect();
       if (!ok) {
-        throw RoomException(client.error.value ?? 'Не удалось запустить тренировку');
+        throw RoomException(
+          client.error.value ?? 'Не удалось запустить тренировку',
+        );
       }
       server.startMatch();
       for (var i = 0; i < 40; i++) {

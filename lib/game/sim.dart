@@ -120,8 +120,8 @@ class GameSim {
     this.deathVision = 1,
     this.loot = 1,
     this.respawn = false,
-  })  : maze = Maze.generate(size: mapSize, seed: seed),
-        rng = math.Random(seed ^ 0x0BADC0DE) {
+  }) : maze = Maze.generate(size: mapSize, seed: seed),
+       rng = math.Random(seed ^ 0x0BADC0DE) {
     zone = ZoneTimeline.generate(
       worldSize: maze.worldSize,
       seed: seed ^ 0x2545F491,
@@ -213,27 +213,30 @@ class GameSim {
 
   void _spawnInitialPickups() {
     final base = (mapSize / 61 * 26).round().clamp(16, 34);
-    final multiplier = loot == 0
-        ? 0.6
-        : (loot == 2 ? 1.45 : 1.0);
+    final multiplier = loot == 0 ? 0.6 : (loot == 2 ? 1.45 : 1.0);
     final count = (base * multiplier).round();
     final spawns = players.values.map((p) => p.pos).toList();
     for (var i = 0; i < count; i++) {
       Offset pos = maze.randomFloorPoint(rng);
       var attempts = 0;
-      while (attempts++ < 40 &&
-          spawns.any((s) => (s - pos).distance < 260)) {
+      while (attempts++ < 40 && spawns.any((s) => (s - pos).distance < 260)) {
         pos = maze.randomFloorPoint(rng);
       }
-      pickups.add(SimPickup(
-        id: _nextPickupId++,
-        pos: pos,
-        type: PickupType.values[_weightedPickupType()],
-      ));
+      pickups.add(
+        SimPickup(
+          id: _nextPickupId++,
+          pos: pos,
+          type: PickupType.values[_weightedPickupType()],
+        ),
+      );
     }
   }
 
-  SimPickup _spawnPickupAt(PickupType type, Offset pos, {bool temporary = false}) {
+  SimPickup _spawnPickupAt(
+    PickupType type,
+    Offset pos, {
+    bool temporary = false,
+  }) {
     final pk = SimPickup(
       id: _nextPickupId++,
       pos: pos,
@@ -273,11 +276,7 @@ class GameSim {
     );
     players[p.id] = p;
     if (spec.isBot) {
-      _brains[p.id] = BotBrain(
-        p.id,
-        skill: botSkill,
-        seed: seed + p.id * 7919,
-      );
+      _brains[p.id] = BotBrain(p.id, skill: botSkill, seed: seed + p.id * 7919);
     }
     events.add(JoinEvent(p.id));
     return p;
@@ -351,8 +350,9 @@ class GameSim {
       final pos = z.center + Offset(math.cos(a) * r, math.sin(a) * r);
       if (!z.contains(pos.dx, pos.dy)) continue;
       if (!maze.isOpenWorld(pos.dx, pos.dy)) continue;
-      final far = players.values
-          .every((p) => !p.alive || (p.pos - pos).distance > 360);
+      final far = players.values.every(
+        (p) => !p.alive || (p.pos - pos).distance > 360,
+      );
       if (far) return pos;
     }
     final fallback = maze.randomFloorPoint(
@@ -439,15 +439,12 @@ class GameSim {
       mx /= mag;
       my /= mag;
     }
-    final speed = kBaseSpeed *
+    final speed =
+        kBaseSpeed *
         (p.speedTime > 0 ? 1.32 : 1.0) *
         (p.dashTime > 0 ? 3.05 : 1.0);
     final old = p.pos;
-    p.pos = maze.moveCircle(
-      p.pos,
-      Offset(mx, my) * speed * dt,
-      kPlayerRadius,
-    );
+    p.pos = maze.moveCircle(p.pos, Offset(mx, my) * speed * dt, kPlayerRadius);
     p.vx = (p.pos.dx - old.dx) / dt;
     p.vy = (p.pos.dy - old.dy) / dt;
 
@@ -549,20 +546,21 @@ class GameSim {
     p.ammo--;
     p.fireCooldown = def.fireInterval;
     for (var i = 0; i < def.pellets; i++) {
-      final angle =
-          p.aim + (rng.nextDouble() - 0.5) * def.spread * 2;
+      final angle = p.aim + (rng.nextDouble() - 0.5) * def.spread * 2;
       final sx = p.pos.dx + math.cos(angle) * (kPlayerRadius + 7);
       final sy = p.pos.dy + math.sin(angle) * (kPlayerRadius + 7);
-      bullets.add(SimBullet(
-        x: sx,
-        y: sy,
-        vx: math.cos(angle) * def.bulletSpeed,
-        vy: math.sin(angle) * def.bulletSpeed,
-        ownerId: p.id,
-        damage: def.damage,
-        life: def.range / def.bulletSpeed,
-        weaponIndex: def.id.index,
-      ));
+      bullets.add(
+        SimBullet(
+          x: sx,
+          y: sy,
+          vx: math.cos(angle) * def.bulletSpeed,
+          vy: math.sin(angle) * def.bulletSpeed,
+          ownerId: p.id,
+          damage: def.damage,
+          life: def.range / def.bulletSpeed,
+          weaponIndex: def.id.index,
+        ),
+      );
     }
     if (p.ammo <= 0) {
       p.reloadTimer = def.reloadTime;
@@ -636,12 +634,7 @@ class GameSim {
       attacker.damageDealt += amount;
     }
     if (!silent) {
-      events.add(DamageEvent(
-        victim.id,
-        attacker?.id ?? -1,
-        amount,
-        angle,
-      ));
+      events.add(DamageEvent(victim.id, attacker?.id ?? -1, amount, angle));
     }
     if (victim.hp <= 0) {
       _kill(victim, attacker);
@@ -656,11 +649,7 @@ class GameSim {
     if (attacker != null && attacker.id != victim.id) {
       attacker.kills++;
     }
-    events.add(KillEvent(
-      attacker?.id ?? -1,
-      victim.id,
-      victim.weaponIndex,
-    ));
+    events.add(KillEvent(attacker?.id ?? -1, victim.id, victim.weaponIndex));
 
     final dropType = _pickupForWeapon(victim.weaponIndex);
     if (dropType != null) {
@@ -678,9 +667,7 @@ class GameSim {
         // сбрасываем таймеры у всех павших членов команды.
         victim.respawnAt = 0;
         for (final ally in players.values) {
-          if (ally.id != victim.id &&
-              ally.team == victim.team &&
-              !ally.alive) {
+          if (ally.id != victim.id && ally.team == victim.team && !ally.alive) {
             ally.respawnAt = 0;
           }
         }
@@ -794,20 +781,23 @@ class GameSim {
       });
       for (var i = 0; i < teamIds.length; i++) {
         final team = teamIds[i];
-        final members = teamsMap[team]!..sort((a, b) {
+        final members = teamsMap[team]!
+          ..sort((a, b) {
             if (a.alive != b.alive) return a.alive ? -1 : 1;
             if (a.kills != b.kills) return b.kills.compareTo(a.kills);
             return b.damageDealt.compareTo(a.damageDealt);
           });
         for (final p in members) {
-          rows.add(ResultRow(
-            id: p.id,
-            placement: i + 1,
-            kills: p.kills,
-            damage: p.damageDealt,
-            survived: p.alive ? endTime : p.deathTime,
-            team: team,
-          ));
+          rows.add(
+            ResultRow(
+              id: p.id,
+              placement: i + 1,
+              kills: p.kills,
+              damage: p.damageDealt,
+              survived: p.alive ? endTime : p.deathTime,
+              team: team,
+            ),
+          );
         }
       }
     } else {
@@ -819,13 +809,15 @@ class GameSim {
         });
       for (var i = 0; i < ordered.length; i++) {
         final p = ordered[i];
-        rows.add(ResultRow(
-          id: p.id,
-          placement: i + 1,
-          kills: p.kills,
-          damage: p.damageDealt,
-          survived: p.alive ? endTime : p.deathTime,
-        ));
+        rows.add(
+          ResultRow(
+            id: p.id,
+            placement: i + 1,
+            kills: p.kills,
+            damage: p.damageDealt,
+            survived: p.alive ? endTime : p.deathTime,
+          ),
+        );
       }
     }
     results = rows;
@@ -931,11 +923,13 @@ class GameSim {
     final playerSnaps = <PlayerSnapshot>[];
     for (final p in players.values) {
       final isSelf = p.id == observerId;
-      final ally = viewer != null &&
+      final ally =
+          viewer != null &&
           viewer.team >= 0 &&
           p.team == viewer.team &&
           p.id != viewer.id;
-      final visible = isSelf ||
+      final visible =
+          isSelf ||
           ally ||
           (p.alive &&
               _canSee(
@@ -945,23 +939,25 @@ class GameSim {
                 spectator: spectator,
               ));
       if (!visible) continue;
-      playerSnaps.add(PlayerSnapshot(
-        id: p.id,
-        x: p.pos.dx,
-        y: p.pos.dy,
-        aim: p.aim,
-        hp: p.hp,
-        shield: p.shield,
-        alive: p.alive,
-        weapon: p.weaponIndex,
-        ammo: p.ammo,
-        speedTime: p.speedTime,
-        ghostTime: p.ghostTime,
-        dashCooldown: p.dashCooldown,
-        reloading: p.reloading,
-        team: p.team,
-        reloadRemaining: p.reloadTimer,
-      ));
+      playerSnaps.add(
+        PlayerSnapshot(
+          id: p.id,
+          x: p.pos.dx,
+          y: p.pos.dy,
+          aim: p.aim,
+          hp: p.hp,
+          shield: p.shield,
+          alive: p.alive,
+          weapon: p.weaponIndex,
+          ammo: p.ammo,
+          speedTime: p.speedTime,
+          ghostTime: p.ghostTime,
+          dashCooldown: p.dashCooldown,
+          reloading: p.reloading,
+          team: p.team,
+          reloadRemaining: p.reloadTimer,
+        ),
+      );
     }
 
     final bulletSnaps = <BulletSnapshot>[];
@@ -976,34 +972,29 @@ class GameSim {
     final pickupSnaps = <PickupSnapshot>[];
     for (final pk in pickups) {
       if (!pk.active) continue;
-      if (!spectator &&
-          !_canSee(viewer, pk.pos, extra: 30, spectator: false)) {
+      if (!spectator && !_canSee(viewer, pk.pos, extra: 30, spectator: false)) {
         continue;
       }
-      pickupSnaps.add(PickupSnapshot(pk.id, pk.pos.dx, pk.pos.dy, pk.type.index));
+      pickupSnaps.add(
+        PickupSnapshot(pk.id, pk.pos.dx, pk.pos.dy, pk.type.index),
+      );
     }
 
-    final scoreboard = players.values
-        .map((p) => ScoreRow(
-              p.id,
-              p.kills,
-              p.alive,
-              p.damageDealt,
-              p.team,
-            ))
-        .toList()
-      ..sort((a, b) {
-        if (a.alive != b.alive) return a.alive ? -1 : 1;
-        if (a.kills != b.kills) return b.kills.compareTo(a.kills);
-        return b.damage.compareTo(a.damage);
-      });
+    final scoreboard =
+        players.values
+            .map((p) => ScoreRow(p.id, p.kills, p.alive, p.damageDealt, p.team))
+            .toList()
+          ..sort((a, b) {
+            if (a.alive != b.alive) return a.alive ? -1 : 1;
+            if (a.kills != b.kills) return b.kills.compareTo(a.kills);
+            return b.damage.compareTo(a.damage);
+          });
 
-    final names = <int, String>{
-      for (final p in players.values) p.id: p.name,
-    };
+    final names = <int, String>{for (final p in players.values) p.id: p.name};
 
     final visibleEvents = <GameEvent>[];
-    for (final e in tickEvents) {      switch (e) {
+    for (final e in tickEvents) {
+      switch (e) {
         case KillEvent():
           visibleEvents.add(e);
         case ZoneEvent():
@@ -1053,7 +1044,7 @@ class GameSim {
       spectateTarget: target?.id ?? 0,
       respawn: respawn,
       respawnRemaining: observer != null && !observer.alive
-          ? math.max(0, observer.respawnAt - matchTime)
+          ? math.max(0.0, observer.respawnAt - matchTime).toDouble()
           : 0,
     );
   }
@@ -1072,12 +1063,7 @@ class GameSim {
       final d = (p.pos - me.pos).distance;
       if (d > bestDist) continue;
       if (p.ghostTime > 0 && d > kGhostVisibleRadius) continue;
-      if (!maze.lineOfSight(
-        me.pos.dx,
-        me.pos.dy,
-        p.pos.dx,
-        p.pos.dy,
-      )) {
+      if (!maze.lineOfSight(me.pos.dx, me.pos.dy, p.pos.dx, p.pos.dy)) {
         continue;
       }
       best = p;
@@ -1112,11 +1098,7 @@ class GameSim {
       final p = z.center + Offset(math.cos(a) * r, math.sin(a) * r);
       if (maze.isOpenWorld(p.dx, p.dy)) return p;
     }
-    return maze.randomFloorPoint(
-      rng,
-      center: z.center,
-      radius: z.radius * 0.6,
-    );
+    return maze.randomFloorPoint(rng, center: z.center, radius: z.radius * 0.6);
   }
 }
 
@@ -1126,7 +1108,7 @@ class GameSim {
 
 class BotBrain {
   BotBrain(this.playerId, {required this.skill, required int seed})
-      : _rng = math.Random(seed);
+    : _rng = math.Random(seed);
 
   final int playerId;
   final double skill;
@@ -1158,20 +1140,18 @@ class BotBrain {
     if (enemy != null) {
       if (_enemyId != enemy.id) {
         _enemyId = enemy.id;
-        _acquire = math.max(0.08, 0.55 - 0.22 * skill) +
-            _rng.nextDouble() * 0.16;
+        _acquire =
+            math.max(0.08, 0.55 - 0.22 * skill) + _rng.nextDouble() * 0.16;
       }
       _acquire -= dt;
       final dist = (enemy.pos - me.pos).distance;
       final lead = dist / def.bulletSpeed * 0.8;
-      final predicted = enemy.pos +
-          Offset(enemy.vx, enemy.vy) * lead;
+      final predicted = enemy.pos + Offset(enemy.vx, enemy.vy) * lead;
       final desired = math.atan2(
         predicted.dy - me.pos.dy,
         predicted.dx - me.pos.dx,
       );
-      final noise = (0.018 + 0.052 / skill) *
-          (_rng.nextDouble() * 2 - 1);
+      final noise = (0.018 + 0.052 / skill) * (_rng.nextDouble() * 2 - 1);
       me.aim = desired + noise;
 
       if (_strafeTimer <= 0) {

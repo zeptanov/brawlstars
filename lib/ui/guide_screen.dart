@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../app/theme.dart';
-import '../game/constants.dart';
 import '../game/weapons.dart';
 import 'widgets.dart';
 
@@ -58,8 +57,10 @@ class _GuideScreenState extends State<GuideScreen> {
                         icon: const Icon(Icons.arrow_back_rounded),
                       ),
                       const SizedBox(width: 8),
-                      const Icon(Icons.menu_book_rounded,
-                          color: Palette.accent),
+                      const Icon(
+                        Icons.menu_book_rounded,
+                        color: Palette.accent,
+                      ),
                       const SizedBox(width: 10),
                       const Text(
                         'ГАЙД И ОБУЧЕНИЕ',
@@ -126,25 +127,29 @@ class _GuideScreenState extends State<GuideScreen> {
                                 _GuideItem(
                                   icon: Icons.visibility_outlined,
                                   title: 'Исследуй',
-                                  text: 'Видна только часть карты вокруг тебя. '
+                                  text:
+                                      'Видна только часть карты вокруг тебя. '
                                       'Стены блокируют обзор и выстрелы.',
                                 ),
                                 _GuideItem(
                                   icon: Icons.backpack_outlined,
                                   title: 'Подготовься',
-                                  text: 'Подбирай оружие, лечись и используй '
+                                  text:
+                                      'Подбирай оружие, лечись и используй '
                                       'временные бонусы в подходящий момент.',
                                 ),
                                 _GuideItem(
                                   icon: Icons.warning_amber_rounded,
                                   title: 'Держись в зоне',
-                                  text: 'Безопасная область постепенно уменьшается. '
+                                  text:
+                                      'Безопасная область постепенно уменьшается. '
                                       'За её пределами здоровье убывает.',
                                 ),
                                 _GuideItem(
                                   icon: Icons.groups_2_outlined,
                                   title: 'Играй по формату',
-                                  text: 'В режиме «Команды 2×2» союзники не наносят '
+                                  text:
+                                      'В режиме «Команды 2×2» союзники не наносят '
                                       'урон друг другу, если хост не включил '
                                       'дружественный огонь.',
                                 ),
@@ -158,21 +163,24 @@ class _GuideScreenState extends State<GuideScreen> {
                                 _GuideItem(
                                   icon: Icons.sports_handball_rounded,
                                   title: kWeapons[0].name,
-                                  text: 'Стартовое оружие. ${kWeapons[0].damage} '
+                                  text:
+                                      'Стартовое оружие. ${kWeapons[0].damage} '
                                       'урона за попадание, магазин '
                                       '${kWeapons[0].magSize} патронов.',
                                 ),
                                 _GuideItem(
                                   icon: Icons.bolt_rounded,
                                   title: kWeapons[1].name,
-                                  text: 'Автоматический ближний/средний бой: '
+                                  text:
+                                      'Автоматический ближний/средний бой: '
                                       '${kWeapons[1].damage} урона за пулю, '
                                       '${kWeapons[1].magSize} патронов.',
                                 ),
                                 _GuideItem(
                                   icon: Icons.grain_rounded,
                                   title: kWeapons[2].name,
-                                  text: 'На близкой дистанции выпускает '
+                                  text:
+                                      'На близкой дистанции выпускает '
                                       '${kWeapons[2].pellets} дробин по '
                                       '${kWeapons[2].damage} урона каждая. '
                                       'В магазине ${kWeapons[2].magSize} выстрелов.',
@@ -180,14 +188,16 @@ class _GuideScreenState extends State<GuideScreen> {
                                 _GuideItem(
                                   icon: Icons.straighten_rounded,
                                   title: kWeapons[3].name,
-                                  text: 'Точный универсальный автомат: '
+                                  text:
+                                      'Точный универсальный автомат: '
                                       '${kWeapons[3].damage} урона, '
                                       '${kWeapons[3].magSize} патронов.',
                                 ),
                                 _GuideItem(
                                   icon: Icons.center_focus_strong_rounded,
                                   title: kWeapons[4].name,
-                                  text: 'Медленный, но мощный точный выстрел: '
+                                  text:
+                                      'Медленный, но мощный точный выстрел: '
                                       '${kWeapons[4].damage} урона. В магазине '
                                       '${kWeapons[4].magSize} патрона.',
                                 ),
@@ -201,35 +211,40 @@ class _GuideScreenState extends State<GuideScreen> {
                                 _GuideItem(
                                   icon: Icons.favorite_rounded,
                                   title: 'Аптечка',
-                                  text: '+45 здоровья, но не выше максимума '
+                                  text:
+                                      '+45 здоровья, но не выше максимума '
                                       '(100 HP). Не трать её при полном здоровье.',
                                   color: Color(0xFF64F5A4),
                                 ),
                                 _GuideItem(
                                   icon: Icons.shield_rounded,
                                   title: 'Щит',
-                                  text: 'Добавляет 40 единиц щита, максимум — '
+                                  text:
+                                      'Добавляет 40 единиц щита, максимум — '
                                       '60. Щит поглощает урон раньше здоровья.',
                                   color: Color(0xFF7FB2FF),
                                 ),
                                 _GuideItem(
                                   icon: Icons.speed_rounded,
                                   title: 'Ускорение',
-                                  text: 'Увеличивает скорость передвижения на 32% '
+                                  text:
+                                      'Увеличивает скорость передвижения на 32% '
                                       'в течение 12 секунд.',
                                   color: Palette.gold,
                                 ),
                                 _GuideItem(
                                   icon: Icons.radar_rounded,
                                   title: 'Радар',
-                                  text: 'На 10 секунд показывает направление и '
+                                  text:
+                                      'На 10 секунд показывает направление и '
                                       'дистанцию до ближайшего врага.',
                                   color: Color(0xFFFF9F5A),
                                 ),
                                 _GuideItem(
                                   icon: Icons.blur_on_rounded,
                                   title: 'Маскировка',
-                                  text: 'На 7 секунд скрывает тебя от дальнего '
+                                  text:
+                                      'На 7 секунд скрывает тебя от дальнего '
                                       'обзора соперников. Вблизи тебя всё ещё '
                                       'можно заметить.',
                                   color: Color(0xFFC792FF),
@@ -244,7 +259,8 @@ class _GuideScreenState extends State<GuideScreen> {
                                 _GuideItem(
                                   icon: Icons.keyboard_outlined,
                                   title: 'Клавиатура и мышь',
-                                  text: 'WASD или стрелки — движение; мышь — '
+                                  text:
+                                      'WASD или стрелки — движение; мышь — '
                                       'прицел; ЛКМ или пробел — огонь; Shift — '
                                       'рывок; R — перезарядка; Tab — таблица; '
                                       'Esc — меню.',
@@ -252,7 +268,8 @@ class _GuideScreenState extends State<GuideScreen> {
                                 _GuideItem(
                                   icon: Icons.touch_app_outlined,
                                   title: 'Сенсорный экран',
-                                  text: 'Левый стик — движение; правый — прицел '
+                                  text:
+                                      'Левый стик — движение; правый — прицел '
                                       'и стрельба. Кнопки справа отвечают за '
                                       'рывок и перезарядку.',
                                 ),
@@ -289,8 +306,8 @@ class _GuideScreenState extends State<GuideScreen> {
                                       backgroundColor: Palette.line,
                                       valueColor:
                                           const AlwaysStoppedAnimation<Color>(
-                                        Palette.accent,
-                                      ),
+                                            Palette.accent,
+                                          ),
                                     ),
                                   ),
                                   const SizedBox(height: 8),
@@ -305,8 +322,7 @@ class _GuideScreenState extends State<GuideScreen> {
                                   for (var i = 0; i < _lessons.length; i++)
                                     _LessonTile(
                                       lesson: _lessons[i],
-                                      completed:
-                                          _completedLessons.contains(i),
+                                      completed: _completedLessons.contains(i),
                                       onToggle: () => setState(() {
                                         if (!_completedLessons.add(i)) {
                                           _completedLessons.remove(i);
@@ -448,11 +464,7 @@ class _GuideItem extends StatelessWidget {
 }
 
 class _Lesson {
-  const _Lesson({
-    required this.icon,
-    required this.title,
-    required this.text,
-  });
+  const _Lesson({required this.icon, required this.title, required this.text});
 
   final IconData icon;
   final String title;
@@ -480,7 +492,9 @@ class _LessonTile extends StatelessWidget {
           color: Palette.surfaceAlt.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(11),
           border: Border.all(
-            color: completed ? Palette.accent.withValues(alpha: 0.45) : Palette.line,
+            color: completed
+                ? Palette.accent.withValues(alpha: 0.45)
+                : Palette.line,
           ),
         ),
         child: Row(

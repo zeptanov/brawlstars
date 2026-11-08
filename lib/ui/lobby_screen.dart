@@ -70,10 +70,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => GameScreen(
-            room: widget.room,
-            fromLobby: true,
-          ),
+          builder: (_) => GameScreen(room: widget.room, fromLobby: true),
         ),
       );
       if (!mounted) return;
@@ -129,9 +126,11 @@ class _LobbyScreenState extends State<LobbyScreen> {
     if (total < needed) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(lobby.teams
-              ? 'В командном режиме не хватает бойцов — боты добавятся автоматически.'
-              : 'Нужен хотя бы один соперник: добавьте бота или позовите друга.'),
+          content: Text(
+            lobby.teams
+                ? 'В командном режиме не хватает бойцов — боты добавятся автоматически.'
+                : 'Нужен хотя бы один соперник: добавьте бота или позовите друга.',
+          ),
         ),
       );
       return;
@@ -166,18 +165,25 @@ class _LobbyScreenState extends State<LobbyScreen> {
                     Expanded(
                       child: lobby == null
                           ? const Center(
-                              child: CircularProgressIndicator(strokeWidth: 2.4),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                              ),
                             )
                           : LayoutBuilder(
                               builder: (context, constraints) {
                                 final wide = constraints.maxWidth >= 980;
                                 return SingleChildScrollView(
-                                  padding:
-                                      const EdgeInsets.fromLTRB(20, 6, 20, 26),
+                                  padding: const EdgeInsets.fromLTRB(
+                                    20,
+                                    6,
+                                    20,
+                                    26,
+                                  ),
                                   child: Center(
                                     child: ConstrainedBox(
-                                      constraints:
-                                          const BoxConstraints(maxWidth: 1180),
+                                      constraints: const BoxConstraints(
+                                        maxWidth: 1180,
+                                      ),
                                       child: wide
                                           ? Row(
                                               crossAxisAlignment:
@@ -446,7 +452,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
               isSelf: player.id == widget.room.client.id,
               isHost: player.id == lobby.hostId,
               showTeam: lobby.teams,
-              canKick: isHost &&
+              canKick:
+                  isHost &&
                   player.id != widget.room.client.id &&
                   player.id != lobby.hostId,
               onKick: () => widget.room.client.kick(player.id),
@@ -467,14 +474,15 @@ class _LobbyScreenState extends State<LobbyScreen> {
               decoration: BoxDecoration(
                 color: Palette.gold.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: Palette.gold.withValues(alpha: 0.25),
-                ),
+                border: Border.all(color: Palette.gold.withValues(alpha: 0.25)),
               ),
               child: const Row(
                 children: <Widget>[
-                  Icon(Icons.info_outline_rounded,
-                      size: 15, color: Palette.gold),
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 15,
+                    color: Palette.gold,
+                  ),
                   SizedBox(width: 9),
                   Expanded(
                     child: Text(
@@ -599,8 +607,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
             selected: kMapSizes.indexOf(lobby.mapSize).clamp(0, 2),
             enabled: isHost,
             compact: true,
-            onChanged:
-                isHost ? (i) => widget.room.client.setMapSize(kMapSizes[i]) : null,
+            onChanged: isHost
+                ? (i) => widget.room.client.setMapSize(kMapSizes[i])
+                : null,
           ),
           const SizedBox(height: 13),
           const Text(
@@ -703,8 +712,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
           Text(
             lobby.teams
                 ? 'Команды по 2 бойца. Если людей не хватает, сервер сам добавит '
-                    'ботов-напарников. При включённом возрождении павший игрок '
-                    'вернётся через 6 секунд, если союзник ещё жив.'
+                      'ботов-напарников. При включённом возрождении павший игрок '
+                      'вернётся через ${kRespawnDelay.toInt()} секунд, если союзник ещё жив.'
                 : 'Время матча — около 3–4 минут. Побеждает последний выживший.',
             style: const TextStyle(
               fontSize: 11,
@@ -799,14 +808,17 @@ class _LobbyScreenState extends State<LobbyScreen> {
                     hintText: 'Сообщение...',
                     counterText: '',
                     isDense: true,
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 13,
+                    ),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               NeonIconButton(
                 icon: Icons.send_rounded,
+                tooltip: 'Отправить сообщение',
                 size: 46,
                 color: Palette.accent,
                 onPressed: _sendChat,
@@ -935,18 +947,10 @@ class _PlayerTile extends StatelessWidget {
                     const SizedBox(width: 5),
                   ],
                   if (isSelf)
-                    const Pill(
-                      text: 'ВЫ',
-                      color: Palette.accent,
-                      small: true,
-                    ),
+                    const Pill(text: 'ВЫ', color: Palette.accent, small: true),
                   if (isHost) ...<Widget>[
                     const SizedBox(width: 5),
-                    const Pill(
-                      text: 'ХОСТ',
-                      color: Palette.gold,
-                      small: true,
-                    ),
+                    const Pill(text: 'ХОСТ', color: Palette.gold, small: true),
                   ],
                 ],
               ),
@@ -1005,9 +1009,7 @@ class _BotsTile extends StatelessWidget {
             decoration: BoxDecoration(
               color: Palette.magenta.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: Palette.magenta.withValues(alpha: 0.3),
-              ),
+              border: Border.all(color: Palette.magenta.withValues(alpha: 0.3)),
             ),
             child: const Icon(
               Icons.smart_toy_outlined,
@@ -1022,10 +1024,7 @@ class _BotsTile extends StatelessWidget {
               children: <Widget>[
                 const Text(
                   'Боты',
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
                 ),
                 Text(
                   count == 0
@@ -1042,6 +1041,7 @@ class _BotsTile extends StatelessWidget {
           if (canEdit) ...<Widget>[
             NeonIconButton(
               icon: Icons.remove_rounded,
+              tooltip: 'Уменьшить число ботов',
               size: 30,
               onPressed: count <= 0 ? null : () => onChange(count - 1),
             ),
@@ -1058,15 +1058,12 @@ class _BotsTile extends StatelessWidget {
             ),
             NeonIconButton(
               icon: Icons.add_rounded,
+              tooltip: 'Увеличить число ботов',
               size: 30,
               onPressed: count >= maxBots ? null : () => onChange(count + 1),
             ),
           ] else
-            Pill(
-              text: '$count',
-              color: Palette.magenta,
-              small: true,
-            ),
+            Pill(text: '$count', color: Palette.magenta, small: true),
         ],
       ),
     );

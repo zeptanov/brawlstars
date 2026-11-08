@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:maze_royale/game/constants.dart';
 import 'package:maze_royale/net/game_server.dart';
+import 'package:maze_royale/net/messages.dart';
 
 void main() {
   group('GameServer', () {
@@ -52,6 +53,31 @@ void main() {
       server.startMatch();
       expect(server.started, isTrue);
       expect(server.sim, isNotNull);
+    });
+
+    test('настройка возрождения передаётся лобби и симуляции матча', () {
+      final messages = <Map<String, dynamic>>[];
+      final server = GameServer(roomName: 'T', hostName: 'Host');
+      addTearDown(server.dispose);
+      final hostId = server.addPeer(
+        name: 'Host',
+        local: true,
+        send: messages.add,
+      );
+      server.teams = true;
+      server.handleMessage(hostId, <String, dynamic>{
+        't': 'cmd',
+        'c': 'respawn',
+        'n': 1,
+      });
+
+      final lobbyJson = messages.lastWhere(
+        (message) => message['t'] == 'lobby',
+      );
+      expect(LobbyState.fromJson(lobbyJson).respawn, isTrue);
+
+      server.startMatch();
+      expect(server.sim?.respawn, isTrue);
     });
   });
 }

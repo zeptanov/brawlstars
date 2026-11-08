@@ -69,7 +69,11 @@ class _BackgroundPainter extends CustomPainter {
       ..shader = const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: <Color>[Color(0xFF070B13), Color(0xFF04060B), Color(0xFF080A10)],
+        colors: <Color>[
+          Color(0xFF070B13),
+          Color(0xFF04060B),
+          Color(0xFF080A10),
+        ],
       ).createShader(rect);
     canvas.drawRect(rect, base);
 
@@ -117,14 +121,14 @@ class _BackgroundPainter extends CustomPainter {
     final dot = Paint()..style = PaintingStyle.fill;
     for (var i = 0; i < 34; i++) {
       final seed = i * 12.9898;
-      final x = (math.sin(seed) * 0.5 + 0.5) * w +
-          math.sin(t * math.pi * 2 + i) * 26;
-      final y = ((math.cos(seed * 1.7) * 0.5 + 0.5) * h -
-          t * (12 + i % 7) * 2) %
-          h;
+      final x =
+          (math.sin(seed) * 0.5 + 0.5) * w + math.sin(t * math.pi * 2 + i) * 26;
+      final y =
+          ((math.cos(seed * 1.7) * 0.5 + 0.5) * h - t * (12 + i % 7) * 2) % h;
       final alpha = 0.08 + 0.18 * ((math.sin(t * 6.28 + i * 1.3) + 1) / 2);
-      dot.color = (i % 5 == 0 ? Palette.accent : Palette.muted)
-          .withValues(alpha: alpha);
+      dot.color = (i % 5 == 0 ? Palette.accent : Palette.muted).withValues(
+        alpha: alpha,
+      );
       canvas.drawCircle(Offset(x, y), 1.2 + (i % 3) * 0.7, dot);
     }
 
@@ -324,8 +328,8 @@ class _NeonButtonState extends State<NeonButton> {
   @override
   Widget build(BuildContext context) {
     final enabled = widget.onPressed != null && !widget.busy;
-    final accent = widget.accent ??
-        (widget.danger ? Palette.danger : Palette.accent);
+    final accent =
+        widget.accent ?? (widget.danger ? Palette.danger : Palette.accent);
     final primary = widget.primary;
 
     final Color textColor;
@@ -399,8 +403,11 @@ class _NeonButtonState extends State<NeonButton> {
           ),
         ),
         if (widget.expand && !widget.busy)
-          Icon(Icons.arrow_forward_rounded,
-              size: 18, color: textColor.withValues(alpha: 0.8)),
+          Icon(
+            Icons.arrow_forward_rounded,
+            size: 18,
+            color: textColor.withValues(alpha: 0.8),
+          ),
       ],
     );
 
@@ -621,8 +628,7 @@ class NeonField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: hint,
             counterText: '',
-            prefixIcon:
-                prefixIcon == null ? null : Icon(prefixIcon, size: 19),
+            prefixIcon: prefixIcon == null ? null : Icon(prefixIcon, size: 19),
             suffixIcon: suffix,
           ),
         ),
@@ -661,7 +667,9 @@ class SegmentedOptions extends StatelessWidget {
           for (var i = 0; i < options.length; i++)
             Expanded(
               child: GestureDetector(
-                onTap: enabled && onChanged != null ? () => onChanged!(i) : null,
+                onTap: enabled && onChanged != null
+                    ? () => onChanged!(i)
+                    : null,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 160),
                   padding: EdgeInsets.symmetric(
@@ -770,8 +778,7 @@ class AddressChip extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               child: const Padding(
                 padding: EdgeInsets.all(5),
-                child: Icon(Icons.copy_rounded,
-                    size: 15, color: Palette.muted),
+                child: Icon(Icons.copy_rounded, size: 15, color: Palette.muted),
               ),
             ),
           ],
@@ -825,6 +832,7 @@ void showNeonSheet({
                       ),
                       NeonIconButton(
                         icon: Icons.close_rounded,
+                        tooltip: 'Закрыть',
                         size: 34,
                         onPressed: () => Navigator.of(context).pop(),
                       ),

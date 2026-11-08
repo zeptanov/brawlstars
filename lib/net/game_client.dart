@@ -113,7 +113,9 @@ class GameClient {
   void _handleHi(Map<String, dynamic> message) {
     final version = (message['ver'] as num?)?.toInt() ?? 0;
     if (version != kProtocolVersion) {
-      _fail('Несовпадение версий игры. Обновите приложение на обоих устройствах.');
+      _fail(
+        'Несовпадение версий игры. Обновите приложение на обоих устройствах.',
+      );
       return;
     }
     id = (message['id'] as num?)?.toInt() ?? 0;
@@ -187,8 +189,10 @@ class GameClient {
   void returnToLobby() => sendCommand('lobby');
   void setBots(int count) => sendCommand('bots', <String, dynamic>{'n': count});
   void setMapSize(int size) => sendCommand('map', <String, dynamic>{'n': size});
-  void setTempo(int value) => sendCommand('tempo', <String, dynamic>{'n': value});
-  void setSkill(int value) => sendCommand('skill', <String, dynamic>{'n': value});
+  void setTempo(int value) =>
+      sendCommand('tempo', <String, dynamic>{'n': value});
+  void setSkill(int value) =>
+      sendCommand('skill', <String, dynamic>{'n': value});
   void setTeams(bool value) =>
       sendCommand('teams', <String, dynamic>{'n': value ? 1 : 0});
   void setDeathVision(int value) =>

@@ -101,12 +101,12 @@ class _GameScreenState extends State<GameScreen>
     if (!kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.android ||
             defaultTargetPlatform == TargetPlatform.iOS)) {
-      unawaited(SystemChrome.setPreferredOrientations(
-        const <DeviceOrientation>[
+      unawaited(
+        SystemChrome.setPreferredOrientations(const <DeviceOrientation>[
           DeviceOrientation.landscapeLeft,
           DeviceOrientation.landscapeRight,
-        ],
-      ));
+        ]),
+      );
       unawaited(
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky),
       );
@@ -132,7 +132,9 @@ class _GameScreenState extends State<GameScreen>
     if (!kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.android ||
             defaultTargetPlatform == TargetPlatform.iOS)) {
-      unawaited(SystemChrome.setPreferredOrientations(DeviceOrientation.values));
+      unawaited(
+        SystemChrome.setPreferredOrientations(DeviceOrientation.values),
+      );
       unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
     }
     super.dispose();
@@ -181,9 +183,7 @@ class _GameScreenState extends State<GameScreen>
   void _updateAim(GameClient client) {
     final snap = client.snapshot.value;
     final self = snap?.playerById(client.id);
-    final pos = self != null
-        ? Offset(self.x, self.y)
-        : _vm.myActor?.pos;
+    final pos = self != null ? Offset(self.x, self.y) : _vm.myActor?.pos;
     if (pos == null) return;
 
     if (_touchControls) {
@@ -249,17 +249,20 @@ class _GameScreenState extends State<GameScreen>
     if (!client.isConnected || client.paused || _leaving) return;
 
     final move = _touchControls ? _leftStick : _keyboardMove();
-    final firing = !_vm.spectator &&
+    final firing =
+        !_vm.spectator &&
         !_menuOpen &&
         (_mouseFire || _spaceFire || _touchFire || _touchHoldFire);
-    client.sendInput(InputState(
-      moveX: move.dx,
-      moveY: move.dy,
-      aim: _aim,
-      fire: firing,
-      dash: _dashPending,
-      reload: _reloadPending,
-    ));
+    client.sendInput(
+      InputState(
+        moveX: move.dx,
+        moveY: move.dy,
+        aim: _aim,
+        fire: firing,
+        dash: _dashPending,
+        reload: _reloadPending,
+      ),
+    );
     _dashPending = false;
     _reloadPending = false;
   }
@@ -486,7 +489,9 @@ class _GameScreenState extends State<GameScreen>
       _addBanner(
         HudBanner(
           text: 'ВАС УСТРАНИЛИ',
-          detail: killer == 'Зона' ? 'Не оставайтесь вне зоны' : 'Наблюдайте за матчем',
+          detail: killer == 'Зона'
+              ? 'Не оставайтесь вне зоны'
+              : 'Наблюдайте за матчем',
           color: Palette.danger,
           icon: Icons.dangerous_rounded,
           createdAt: _vm.time,
@@ -508,17 +513,12 @@ class _GameScreenState extends State<GameScreen>
 
     final attacker = _vm.actors[event.attackerId];
     final angle = attacker != null
-        ? math.atan2(
-            attacker.pos.dy - me.pos.dy,
-            attacker.pos.dx - me.pos.dx,
-          )
+        ? math.atan2(attacker.pos.dy - me.pos.dy, attacker.pos.dx - me.pos.dx)
         : event.angle + math.pi;
     setState(() {
-      _damageMarks.add(DamageMark(
-        angle: angle,
-        amount: event.amount,
-        createdAt: _vm.time,
-      ));
+      _damageMarks.add(
+        DamageMark(angle: angle, amount: event.amount, createdAt: _vm.time),
+      );
       while (_damageMarks.length > 8) {
         _damageMarks.removeAt(0);
       }
@@ -730,9 +730,7 @@ class _GameScreenState extends State<GameScreen>
   void _aimAt(Offset local) {
     final snap = _client.snapshot.value;
     final self = snap?.playerById(_client.id);
-    final pos = self != null
-        ? Offset(self.x, self.y)
-        : _vm.myActor?.pos;
+    final pos = self != null ? Offset(self.x, self.y) : _vm.myActor?.pos;
     if (pos == null) return;
     final world = _vm.screenToWorld(local);
     final dx = world.dx - pos.dx;
@@ -956,7 +954,8 @@ class _GameScreenState extends State<GameScreen>
                           damage: _damageMarks,
                           hitAt: _hitAt,
                           killAt: _killAt,
-                          firing: _mouseFire ||
+                          firing:
+                              _mouseFire ||
                               _spaceFire ||
                               _touchFire ||
                               _touchHoldFire,
@@ -1081,10 +1080,48 @@ class _GameScreenState extends State<GameScreen>
 
   Widget _spectatorBar() {
     final focus = _vm.focusActor;
-    return _SpectatorBar(
-      name: focus?.name,
-      onPrev: () => _cycleSpectate(-1),
-      onNext: () => _cycleSpectate(1),
+    final snapshot = _vm.snapshot;
+    final respawnRemaining = snapshot?.respawnRemaining ?? 0;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        if (snapshot?.respawn == true && respawnRemaining > 0) ...<Widget>[
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Palette.accent.withValues(alpha: 0.45)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const Icon(
+                  Icons.restart_alt_rounded,
+                  size: 16,
+                  color: Palette.accent,
+                ),
+                const SizedBox(width: 7),
+                Text(
+                  'ВОЗРОЖДЕНИЕ ЧЕРЕЗ ${respawnRemaining.ceil()} С · СОЮЗНИК ЖИВ',
+                  style: const TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.4,
+                    color: Palette.accent,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        _SpectatorBar(
+          name: focus?.name,
+          onPrev: () => _cycleSpectate(-1),
+          onNext: () => _cycleSpectate(1),
+        ),
+      ],
     );
   }
 }
@@ -1175,11 +1212,7 @@ class _CombatOverlayPainter extends CustomPainter {
       ..color = color.withValues(alpha: 0.92);
     final inner = touch ? 9.0 : 7.5;
     canvas.drawCircle(cross, inner, reticle);
-    canvas.drawCircle(
-      cross,
-      2,
-      Paint()..color = color.withValues(alpha: 0.95),
-    );
+    canvas.drawCircle(cross, 2, Paint()..color = color.withValues(alpha: 0.95));
     final tick = Paint()
       ..strokeWidth = 1.6
       ..strokeCap = StrokeCap.round
@@ -1187,11 +1220,7 @@ class _CombatOverlayPainter extends CustomPainter {
     for (var i = 0; i < 4; i++) {
       final a = i * math.pi / 2;
       final d = Offset(math.cos(a), math.sin(a));
-      canvas.drawLine(
-        cross + d * (inner + 3),
-        cross + d * (inner + 9),
-        tick,
-      );
+      canvas.drawLine(cross + d * (inner + 3), cross + d * (inner + 9), tick);
     }
 
     _marker(canvas, cross, hitAt, 0.23, color, 8);
@@ -1278,8 +1307,10 @@ class _CountdownOverlay extends StatelessWidget {
               Container(
                 constraints: const BoxConstraints(maxWidth: 560),
                 margin: const EdgeInsets.symmetric(horizontal: 20),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.55),
                   borderRadius: BorderRadius.circular(14),
@@ -1303,9 +1334,7 @@ class _CountdownOverlay extends StatelessWidget {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      touch
-                          ? 'Кнопки справа: рывок, перезарядка, огонь'
-                          : 'Shift — рывок · R — перезарядка · Tab — таблица · Esc — меню',
+                      touch ? 'Кнопки справа: рывок, перезарядка, огонь' : 'Shift — рывок · R — перезарядка · Tab — таблица · Esc — меню',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 10,
@@ -1518,10 +1547,10 @@ class _GameMenu extends StatelessWidget {
                       Text(
                         touchControls
                             ? 'Левый стик — движение. Правый стик — прицел и автоматический огонь. '
-                                'Огонь — удержание кнопки. Рывок и перезарядка — кнопки справа.'
+                                  'Огонь — удержание кнопки. Рывок и перезарядка — кнопки справа.'
                             : 'WASD — движение. Мышь — прицел. ЛКМ или пробел — огонь. '
-                                'Shift — рывок. R — перезарядка. Tab — таблица. Esc — меню. '
-                                'C — переключить управление.',
+                                  'Shift — рывок. R — перезарядка. Tab — таблица. Esc — меню. '
+                                  'C — переключить управление.',
                         style: const TextStyle(
                           fontSize: 10.5,
                           height: 1.5,

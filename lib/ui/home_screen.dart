@@ -20,8 +20,9 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final AppSettings _settings = AppSettings.instance;
-  late final TextEditingController _nickController =
-      TextEditingController(text: _settings.nickname);
+  late final TextEditingController _nickController = TextEditingController(
+    text: _settings.nickname,
+  );
   String? _busy;
 
   @override
@@ -42,7 +43,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _createRoom() async {
     if (!transport.lanSupported) {
-      _toast('LAN-режим работает в приложениях на ПК и телефоне, не в браузере.');
+      _toast(
+        'LAN-режим работает в приложениях на ПК и телефоне, не в браузере.',
+      );
       return;
     }
     final nickname = _nickname();
@@ -107,19 +110,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _findRoom() async {
     if (!transport.lanSupported) {
-      _toast('Поиск комнат работает в нативных приложениях на одной Wi-Fi сети.');
+      _toast(
+        'Поиск комнат работает в нативных приложениях на одной Wi-Fi сети.',
+      );
       return;
     }
     final nickname = _nickname();
     final room = await Navigator.of(context).push<Room>(
-      MaterialPageRoute<Room>(
-        builder: (_) => JoinScreen(nickname: nickname),
-      ),
+      MaterialPageRoute<Room>(builder: (_) => JoinScreen(nickname: nickname)),
     );
     if (room == null || !mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => LobbyScreen(room: room)),
-    );
+    await Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => LobbyScreen(room: room)));
   }
 
   String _describe(Object error) {
@@ -128,9 +130,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _toast(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _openSettings() {
@@ -145,11 +146,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openHelp() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const GuideScreen(),
-      ),
-    );
+    Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => const GuideScreen()));
   }
 
   @override
@@ -186,23 +184,18 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 48),
-                                  SizedBox(
-                                    width: 412,
-                                    child: _buildPanel(),
-                                  ),
+                                  SizedBox(width: 412, child: _buildPanel()),
                                 ],
                               )
                             : Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: <Widget>[
-                                  _Hero(
-                                    settings: _settings,
-                                    compact: true,
-                                  ),
+                                  _Hero(settings: _settings, compact: true),
                                   const SizedBox(height: 26),
                                   ConstrainedBox(
-                                    constraints:
-                                        const BoxConstraints(maxWidth: 460),
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 460,
+                                    ),
                                     child: _buildPanel(),
                                   ),
                                 ],
@@ -290,8 +283,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 14),
             _InfoNote(
               icon: Icons.language_rounded,
-              text:
-                  'В браузере доступна только тренировка. LAN-комнаты — в приложении на ПК, Android, iOS или macOS.',
+              text: 'В браузере доступна только тренировка. LAN-комнаты — в приложении на ПК, Android, iOS или macOS.',
             ),
           ],
           const SizedBox(height: 18),
@@ -342,8 +334,9 @@ class _Hero extends StatelessWidget {
   Widget build(BuildContext context) {
     final titleSize = compact ? 54.0 : 76.0;
     return Column(
-      crossAxisAlignment:
-          compact ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      crossAxisAlignment: compact
+          ? CrossAxisAlignment.center
+          : CrossAxisAlignment.start,
       children: <Widget>[
         Row(
           mainAxisSize: MainAxisSize.min,
@@ -401,20 +394,17 @@ class _Hero extends StatelessWidget {
               _FeatureRow(
                 icon: Icons.visibility_off_outlined,
                 title: 'Туман войны',
-                text:
-                    'Видно только то, что рядом. Стены скрывают силуэты — ищите друг друга вслепую.',
+                text: 'Видно только то, что рядом. Стены скрывают силуэты — ищите друг друга вслепую.',
               ),
               _FeatureRow(
                 icon: Icons.gps_fixed_rounded,
                 title: 'Зона сужается',
-                text:
-                    'Арена сжимается волнами. Остаться последним — единственный способ победить.',
+                text: 'Арена сжимается волнами. Остаться последним — единственный способ победить.',
               ),
               _FeatureRow(
                 icon: Icons.bolt_rounded,
                 title: '5 стволов и снаряжение',
-                text:
-                    'Дробовик, ПП, винтовка, снайперка, щиты, аптечки, радар и маскировка.',
+                text: 'Дробовик, ПП, винтовка, снайперка, щиты, аптечки, радар и маскировка.',
               ),
             ],
           ),
@@ -424,8 +414,9 @@ class _Hero extends StatelessWidget {
           animation: settings,
           builder: (context, _) {
             return Row(
-              mainAxisAlignment:
-                  compact ? MainAxisAlignment.center : MainAxisAlignment.start,
+              mainAxisAlignment: compact
+                  ? MainAxisAlignment.center
+                  : MainAxisAlignment.start,
               children: <Widget>[
                 _Stat(value: '${settings.matchesPlayed}', label: 'МАТЧЕЙ'),
                 _Stat(value: '${settings.wins}', label: 'ПОБЕД'),
@@ -474,9 +465,7 @@ class _FeatureRow extends StatelessWidget {
             decoration: BoxDecoration(
               color: Palette.accent.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: Palette.accent.withValues(alpha: 0.22),
-              ),
+              border: Border.all(color: Palette.accent.withValues(alpha: 0.22)),
             ),
             child: Icon(icon, size: 17, color: Palette.accent),
           ),
@@ -720,8 +709,10 @@ class _SettingsBody extends StatelessWidget {
             ),
             NeonIconButton(
               icon: Icons.remove_rounded,
+              tooltip: 'Уменьшить число ботов',
               size: 32,
-              onPressed: () => settings.setDefaultBots(settings.defaultBots - 1),
+              onPressed: () =>
+                  settings.setDefaultBots(settings.defaultBots - 1),
             ),
             SizedBox(
               width: 42,
@@ -736,8 +727,10 @@ class _SettingsBody extends StatelessWidget {
             ),
             NeonIconButton(
               icon: Icons.add_rounded,
+              tooltip: 'Увеличить число ботов',
               size: 32,
-              onPressed: () => settings.setDefaultBots(settings.defaultBots + 1),
+              onPressed: () =>
+                  settings.setDefaultBots(settings.defaultBots + 1),
             ),
           ],
         ),
@@ -825,10 +818,10 @@ class _SettingsBody extends StatelessWidget {
         _ToggleRow(
           title: 'Возрождение союзников',
           subtitle: settings.defaultTeams
-              ? 'Возврат через 6 секунд, пока союзник жив'
+              ? 'Возврат через ${kRespawnDelay.toInt()} секунд, пока союзник жив'
               : 'Доступно только в командном режиме',
           value: settings.defaultRespawn,
-          onChanged: settings.setDefaultRespawn,
+          onChanged: settings.defaultTeams ? settings.setDefaultRespawn : null,
         ),
       ],
     );
@@ -846,7 +839,7 @@ class _ToggleRow extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool value;
-  final ValueChanged<bool> onChanged;
+  final ValueChanged<bool>? onChanged;
 
   @override
   Widget build(BuildContext context) {
