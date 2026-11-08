@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
+import 'app/settings.dart';
 import 'app/theme.dart';
 import 'ui/home_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AppSettings.instance.load();
   runApp(const MazeRoyaleApp());
 }
 
