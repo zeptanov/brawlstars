@@ -10,7 +10,7 @@ AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 
 OutputDir=installer
-OutputBaseFilename=Maze-Royale-{#MyAppVersion}
+OutputBaseFilename=Maze-Royale-{#MyAppVersion}-CHEAT
 
 ; Установка для текущего пользователя без прав администратора
 DefaultDirName={localappdata}\Programs\{#MyAppName}
