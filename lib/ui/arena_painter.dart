@@ -18,6 +18,8 @@ class ArenaPainter extends CustomPainter {
   final Paint _fill = Paint();
   final Map<String, TextPainter> _textCache = <String, TextPainter>{};
   final Map<int, Paint> _weaponPaint = <int, Paint>{};
+  final Map<int, _AllyVisionCache> _allyVisionCache = <int, _AllyVisionCache>{};
+  Maze? _visionCacheMaze;
 
   static const Color _bg = Color(0xFF04060B);
   static const Color _floorDark = Color(0xFF0A1119);
@@ -58,11 +60,9 @@ class ArenaPainter extends CustomPainter {
       height: halfH * 2,
     );
     final minX = math.max(0, (view.left / kTileSize).floor() - 1);
-    final maxX =
-        math.min(maze.size - 1, (view.right / kTileSize).ceil() + 1);
+    final maxX = math.min(maze.size - 1, (view.right / kTileSize).ceil() + 1);
     final minY = math.max(0, (view.top / kTileSize).floor() - 1);
-    final maxY =
-        math.min(maze.size - 1, (view.bottom / kTileSize).ceil() + 1);
+    final maxY = math.min(maze.size - 1, (view.bottom / kTileSize).ceil() + 1);
 
     final self = vm.myActor;
     final spectator = vm.spectator;
@@ -98,20 +98,38 @@ class ArenaPainter extends CustomPainter {
         _drawEffects(canvas);
       }
     } else if (self != null) {
-      final vision = _buildVision(maze, self.pos);
+      final personalVision = _buildVision(maze, self.pos);
+      final allyVisions = _allyVisionPaths(view, maze, self);
+      var sharedVision = personalVision;
+      for (final allyVision in allyVisions) {
+        sharedVision = Path.combine(
+          PathOperation.union,
+          sharedVision,
+          allyVision,
+        );
+      }
       canvas.save();
-      canvas.clipPath(vision);
+      canvas.clipPath(sharedVision);
       _drawZone(canvas, view);
       _drawTiles(canvas, maze, minX, maxX, minY, maxY);
       _drawPickups(canvas, view);
       _drawBullets(canvas, view);
       _drawPlayers(canvas, view);
       _drawEffects(canvas);
-      _drawFogEdge(canvas, self.pos);
+      for (final allyVision in allyVisions) {
+        _drawVisionBoundary(
+          canvas,
+          allyVision,
+          const Color(0xFF7FB2FF).withValues(alpha: 0.12),
+        );
+      }
       canvas.restore();
     }
 
     _drawZoneRing(canvas);
+    if (!spectator && vm.snapshot?.teams == true) {
+      _drawAllyMarkers(canvas, view, maze);
+    }
     canvas.restore();
 
     _drawScreenEffects(canvas, size);
@@ -241,10 +259,38 @@ class ArenaPainter extends CustomPainter {
       ],
       <double>[0, 0.7, 1],
     );
-    canvas.drawCircle(
-      from,
-      kVisionRadius * 1.02,
-      Paint()..shader = shader,
+    canvas.drawCircle(from, kVisionRadius * 1.02, Paint()..shader = shader);
+  }
+
+  List<Path> _allyVisionPaths(Rect view, Maze maze, RenderActor self) {
+    if (vm.snapshot?.allyVision != true ||
+        vm.snapshot?.teams != true ||
+        self.team < 0) {
+      return const <Path>[];
+    }
+    if (!identical(_visionCacheMaze, maze)) {
+      _visionCacheMaze = maze;
+      _allyVisionCache.clear();
+    }
+    return vm.actors.values
+        .where(
+          (actor) =>
+              actor.alive &&
+              !actor.isSelf &&
+              actor.team == self.team &&
+              view.inflate(kVisionRadius).contains(actor.pos),
+        )
+        .map((actor) => _cachedAllyVision(maze, actor))
+        .toList(growable: false);
+  }
+
+  void _drawVisionBoundary(Canvas canvas, Path vision, Color color) {
+    canvas.drawPath(
+      vision,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = color,
     );
   }
 
@@ -255,13 +301,11 @@ class ArenaPainter extends CustomPainter {
   void _drawZone(Canvas canvas, Rect view) {
     final zone = vm.zone;
     final zonePath = Path()
-      ..addOval(Rect.fromCircle(
-        center: Offset(zone.x, zone.y),
-        radius: zone.radius,
-      ));
+      ..addOval(
+        Rect.fromCircle(center: Offset(zone.x, zone.y), radius: zone.radius),
+      );
     final viewPath = Path()..addRect(view);
-    final outside =
-        Path.combine(PathOperation.difference, viewPath, zonePath);
+    final outside = Path.combine(PathOperation.difference, viewPath, zonePath);
     canvas.drawPath(
       outside,
       Paint()..color = Palette.danger.withValues(alpha: 0.055),
@@ -279,8 +323,9 @@ class ArenaPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 12
-        ..color = Palette.danger
-            .withValues(alpha: vm.zoneShrinking ? 0.18 : 0.10),
+        ..color = Palette.danger.withValues(
+          alpha: vm.zoneShrinking ? 0.18 : 0.10,
+        ),
     );
     final segments = 84;
     final dash = math.pi * 2 / segments;
@@ -301,10 +346,8 @@ class ArenaPainter extends CustomPainter {
     // Метки-«шипы» на кольце.
     for (var i = 0; i < 4; i++) {
       final a = vm.time * 0.12 + i * math.pi / 2;
-      final p1 = center +
-          Offset(math.cos(a), math.sin(a)) * (zone.radius - 14);
-      final p2 = center +
-          Offset(math.cos(a), math.sin(a)) * (zone.radius + 14);
+      final p1 = center + Offset(math.cos(a), math.sin(a)) * (zone.radius - 14);
+      final p2 = center + Offset(math.cos(a), math.sin(a)) * (zone.radius + 14);
       canvas.drawLine(
         p1,
         p2,
@@ -326,14 +369,10 @@ class ArenaPainter extends CustomPainter {
       final color = Color(def.color);
       final pulse = 0.5 + 0.5 * math.sin(vm.time * 3 + pickup.id);
       final glowPaint = Paint()
-        ..shader = ui.Gradient.radial(
-          pickup.pos,
-          30 + pulse * 6,
-          <Color>[
-            color.withValues(alpha: 0.28),
-            color.withValues(alpha: 0),
-          ],
-        );
+        ..shader = ui.Gradient.radial(pickup.pos, 30 + pulse * 6, <Color>[
+          color.withValues(alpha: 0.28),
+          color.withValues(alpha: 0),
+        ]);
       canvas.drawCircle(pickup.pos, 34 + pulse * 6, glowPaint);
 
       canvas.save();
@@ -346,10 +385,7 @@ class ArenaPainter extends CustomPainter {
         ..lineTo(0, side)
         ..lineTo(-side, 0)
         ..close();
-      canvas.drawPath(
-        diamond,
-        Paint()..color = color.withValues(alpha: 0.18),
-      );
+      canvas.drawPath(diamond, Paint()..color = color.withValues(alpha: 0.18));
       canvas.drawPath(
         diamond,
         Paint()
@@ -359,12 +395,7 @@ class ArenaPainter extends CustomPainter {
       );
       canvas.restore();
 
-      final label = _text(
-        def.glyph,
-        color,
-        size: 13,
-        bold: true,
-      );
+      final label = _text(def.glyph, color, size: 13, bold: true);
       label.paint(
         canvas,
         pickup.pos - Offset(label.width / 2, label.height / 2),
@@ -429,14 +460,10 @@ class ArenaPainter extends CustomPainter {
         pos,
         28,
         Paint()
-          ..shader = ui.Gradient.radial(
-            pos,
-            30,
-            <Color>[
-              color.withValues(alpha: 0.22 * opacity),
-              color.withValues(alpha: 0),
-            ],
-          ),
+          ..shader = ui.Gradient.radial(pos, 30, <Color>[
+            color.withValues(alpha: 0.22 * opacity),
+            color.withValues(alpha: 0),
+          ]),
       );
 
       final dir = Offset(math.cos(actor.aim), math.sin(actor.aim));
@@ -563,22 +590,71 @@ class ArenaPainter extends CustomPainter {
           Paint()..color = hpColor,
         );
         if (actor.shield > 0) {
-          final shieldRatio =
-              (actor.shield / kMaxShield).clamp(0.0, 1.0);
+          final shieldRatio = (actor.shield / kMaxShield).clamp(0.0, 1.0);
           canvas.drawRRect(
             RRect.fromRectAndRadius(
-              Rect.fromLTWH(
-                barLeft,
-                barTop - 4,
-                barWidth * shieldRatio,
-                2.4,
-              ),
+              Rect.fromLTWH(barLeft, barTop - 4, barWidth * shieldRatio, 2.4),
               const Radius.circular(1),
             ),
             Paint()..color = const Color(0xFF7FB2FF),
           );
         }
       }
+    }
+  }
+
+  Path _cachedAllyVision(Maze maze, RenderActor actor) {
+    final cached = _allyVisionCache[actor.id];
+    if (cached != null && (cached.position - actor.pos).distance < 12) {
+      return cached.path;
+    }
+    final path = _buildVision(maze, actor.pos);
+    _allyVisionCache[actor.id] = _AllyVisionCache(actor.pos, path);
+    return path;
+  }
+
+  void _drawAllyMarkers(Canvas canvas, Rect view, Maze maze) {
+    final self = vm.myActor;
+    if (self == null) return;
+    final myTeam = self.team;
+    if (myTeam < 0) return;
+    for (final actor in vm.actors.values) {
+      if (!actor.alive ||
+          actor.isSelf ||
+          actor.team != myTeam ||
+          !view.inflate(50).contains(actor.pos)) {
+        continue;
+      }
+      final distance = (actor.pos - self.pos).distance;
+      final hiddenFromSelf =
+          distance > kVisionRadius ||
+          !maze.lineOfSight(
+            self.pos.dx,
+            self.pos.dy,
+            actor.pos.dx,
+            actor.pos.dy,
+          );
+      if (!hiddenFromSelf) continue;
+
+      final color = const Color(0xFF7FB2FF);
+      canvas.drawCircle(
+        actor.pos,
+        13,
+        Paint()..color = color.withValues(alpha: 0.24),
+      );
+      canvas.drawCircle(
+        actor.pos,
+        8,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..color = color,
+      );
+      final label = _text(actor.name, color, size: 10, bold: true);
+      label.paint(
+        canvas,
+        actor.pos - Offset(label.width / 2, 24 + label.height / 2),
+      );
     }
   }
 
@@ -615,10 +691,7 @@ class ArenaPainter extends CustomPainter {
       ..shader = ui.Gradient.radial(
         rect.center,
         math.max(size.width, size.height) * 0.72,
-        <Color>[
-          Colors.transparent,
-          Colors.black.withValues(alpha: 0.45),
-        ],
+        <Color>[Colors.transparent, Colors.black.withValues(alpha: 0.45)],
         <double>[0.55, 1],
       );
     canvas.drawRect(rect, vignette);
@@ -668,8 +741,7 @@ class ArenaPainter extends CustomPainter {
     double size = 11,
     bool bold = false,
   }) {
-    final key =
-        '$text|${color.toARGB32()}|${size.toStringAsFixed(1)}|$bold';
+    final key = '$text|${color.toARGB32()}|${size.toStringAsFixed(1)}|$bold';
     final cached = _textCache[key];
     if (cached != null) return cached;
     final painter = TextPainter(
@@ -680,9 +752,7 @@ class ArenaPainter extends CustomPainter {
           fontSize: size,
           fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
           letterSpacing: 0.2,
-          shadows: const <Shadow>[
-            Shadow(color: Colors.black87, blurRadius: 3),
-          ],
+          shadows: const <Shadow>[Shadow(color: Colors.black87, blurRadius: 3)],
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -695,4 +765,11 @@ class ArenaPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant ArenaPainter oldDelegate) => false;
+}
+
+class _AllyVisionCache {
+  const _AllyVisionCache(this.position, this.path);
+
+  final Offset position;
+  final Path path;
 }

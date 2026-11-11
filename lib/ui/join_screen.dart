@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../app/game_audio.dart';
 import '../app/room.dart';
 import '../app/theme.dart';
 import '../game/constants.dart';
@@ -32,6 +34,7 @@ class _JoinScreenState extends State<JoinScreen>
   bool _scanning = true;
   String? _error;
   String? _connecting;
+  final GameAudio _audio = GameAudio.instance;
 
   @override
   void initState() {
@@ -68,6 +71,7 @@ class _JoinScreenState extends State<JoinScreen>
 
   Future<void> _connect(String address, int port) async {
     if (_connecting != null) return;
+    unawaited(_audio.playUi());
     setState(() {
       _connecting = 'Подключаемся к $address...';
       _error = null;
@@ -100,6 +104,7 @@ class _JoinScreenState extends State<JoinScreen>
   }
 
   void _connectManual() {
+    unawaited(_audio.playUi());
     var raw = _addressController.text.trim();
     if (raw.isEmpty) {
       setState(() => _error = 'Введите IP-адрес хоста');
@@ -216,7 +221,10 @@ class _JoinScreenState extends State<JoinScreen>
           NeonIconButton(
             icon: Icons.arrow_back_rounded,
             tooltip: 'Назад',
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () {
+              unawaited(_audio.playUi());
+              Navigator.of(context).pop();
+            },
           ),
           const SizedBox(width: 14),
           const Expanded(
@@ -245,6 +253,13 @@ class _JoinScreenState extends State<JoinScreen>
               icon: Icons.radar_rounded,
               small: true,
             ),
+          if (_scanner != null) const SizedBox(width: 6),
+          const Pill(
+            text: 'P$kProtocolVersion',
+            color: Palette.accent,
+            icon: Icons.verified_outlined,
+            small: true,
+          ),
         ],
       ),
     );
@@ -262,9 +277,8 @@ class _JoinScreenState extends State<JoinScreen>
                 height: 118,
                 child: AnimatedBuilder(
                   animation: _radar,
-                  builder: (context, _) => CustomPaint(
-                    painter: _RadarPainter(_radar.value),
-                  ),
+                  builder: (context, _) =>
+                      CustomPaint(painter: _RadarPainter(_radar.value)),
                 ),
               ),
               const SizedBox(width: 14),
@@ -303,10 +317,7 @@ class _JoinScreenState extends State<JoinScreen>
               TextButton.icon(
                 onPressed: _scanning ? null : _startScanner,
                 icon: const Icon(Icons.refresh_rounded, size: 16),
-                label: const Text(
-                  'Обновить',
-                  style: TextStyle(fontSize: 11.5),
-                ),
+                label: const Text('Обновить', style: TextStyle(fontSize: 11.5)),
               ),
             ],
           ),
@@ -315,8 +326,7 @@ class _JoinScreenState extends State<JoinScreen>
             const _EmptyRooms(
               icon: Icons.portable_wifi_off_rounded,
               title: 'Автопоиск недоступен',
-              text:
-                  'Не удалось открыть порт обнаружения. Введите IP-адрес хоста справа.',
+              text: 'Не удалось открыть порт обнаружения. Введите IP-адрес хоста справа.',
             )
           else
             ValueListenableBuilder<List<DiscoveredRoom>>(
@@ -423,12 +433,27 @@ class _RoomTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final inGame = room.phase >= 0;
+    final compatible = room.protocolCompatible;
+    final protocolColor = compatible ? Palette.accent : Palette.danger;
+    final protocolIcon = compatible
+        ? Icons.check_circle_outline_rounded
+        : room.protocolVersion > kProtocolVersion
+        ? Icons.arrow_upward_rounded
+        : Icons.arrow_downward_rounded;
+    final protocolLabel = compatible
+        ? 'v${room.protocolVersion}'
+        : 'v${room.protocolVersion} ${room.protocolVersion > kProtocolVersion ? '↑' : '↓'}';
+    final protocolHint = compatible
+        ? 'Версия протокола совпадает'
+        : room.protocolVersion > kProtocolVersion
+        ? 'У хоста версия ${room.protocolVersion}; нужна более новая версия игры'
+        : 'У хоста старая версия протокола ${room.protocolVersion}; обновите игру у хоста';
     return Padding(
       padding: const EdgeInsets.only(bottom: 9),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap,
+          onTap: compatible ? onTap : null,
           borderRadius: BorderRadius.circular(14),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
@@ -502,6 +527,25 @@ class _RoomTile extends StatelessWidget {
                         color: inGame ? Palette.gold : Palette.mutedDark,
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    Tooltip(
+                      message: protocolHint,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Icon(protocolIcon, size: 12, color: protocolColor),
+                          const SizedBox(width: 3),
+                          Text(
+                            protocolLabel,
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: protocolColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(width: 6),
@@ -545,10 +589,7 @@ class _EmptyRooms extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w700,
-            ),
+            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 4),
           Text(
@@ -586,9 +627,7 @@ class _MiniStep extends StatelessWidget {
             decoration: BoxDecoration(
               color: Palette.accent.withValues(alpha: 0.12),
               shape: BoxShape.circle,
-              border: Border.all(
-                color: Palette.accent.withValues(alpha: 0.35),
-              ),
+              border: Border.all(color: Palette.accent.withValues(alpha: 0.35)),
             ),
             child: Text(
               number,
@@ -644,11 +683,7 @@ class _ErrorNote extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: TextStyle(
-                fontSize: 11.5,
-                height: 1.4,
-                color: color,
-              ),
+              style: TextStyle(fontSize: 11.5, height: 1.4, color: color),
             ),
           ),
         ],
@@ -695,8 +730,7 @@ class _RadarPainter extends CustomPainter {
     ).createShader(Rect.fromCircle(center: center, radius: radius));
     canvas.drawCircle(center, radius, Paint()..shader = shader);
 
-    final beamEnd = center +
-        Offset(math.cos(sweep), math.sin(sweep)) * radius;
+    final beamEnd = center + Offset(math.cos(sweep), math.sin(sweep)) * radius;
     canvas.drawLine(
       center,
       beamEnd,
@@ -715,6 +749,5 @@ class _RadarPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _RadarPainter oldDelegate) =>
-      oldDelegate.t != t;
+  bool shouldRepaint(covariant _RadarPainter oldDelegate) => oldDelegate.t != t;
 }

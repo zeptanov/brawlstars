@@ -14,8 +14,8 @@ class RenderActor {
     required this.isSelf,
     required this.pos,
     required this.aim,
-  })  : target = pos,
-        targetAim = aim;
+  }) : target = pos,
+       targetAim = aim;
 
   final int id;
   String name;
@@ -185,8 +185,7 @@ class GameViewModel {
       if (row == null || !row.alive) _pendingSpectate = 0;
     }
     if (snap.spectateTarget > 0) {
-      if (_pendingSpectate == 0 ||
-          snap.spectateTarget == _pendingSpectate) {
+      if (_pendingSpectate == 0 || snap.spectateTarget == _pendingSpectate) {
         spectateTargetId = snap.spectateTarget;
         if (snap.spectateTarget == _pendingSpectate) _pendingSpectate = 0;
       }
@@ -283,18 +282,16 @@ class GameViewModel {
 
     bullets
       ..clear()
-      ..addAll(snap.bullets.map(
-        (b) => BulletView(
-          Offset(b.x, b.y),
-          Offset(b.vx, b.vy),
-          b.weapon,
+      ..addAll(
+        snap.bullets.map(
+          (b) => BulletView(Offset(b.x, b.y), Offset(b.vx, b.vy), b.weapon),
         ),
-      ));
+      );
     pickups
       ..clear()
-      ..addAll(snap.pickups.map(
-        (p) => PickupView(p.id, Offset(p.x, p.y), p.type),
-      ));
+      ..addAll(
+        snap.pickups.map((p) => PickupView(p.id, Offset(p.x, p.y), p.type)),
+      );
 
     final focus = focusActor;
     if (focus != null) {
@@ -310,10 +307,7 @@ class GameViewModel {
         var next = camera + (target - camera) * camSmooth;
         final world = maze?.worldSize ?? 0;
         if (world > 0) {
-          next = Offset(
-            next.dx.clamp(0, world),
-            next.dy.clamp(0, world),
-          );
+          next = Offset(next.dx.clamp(0, world), next.dy.clamp(0, world));
         }
         camera = next;
       }
@@ -325,6 +319,14 @@ class GameViewModel {
       if (_exploreAccum >= 0.11) {
         _exploreAccum = 0;
         _markExplored(focus.pos);
+        final snapshot = snap;
+        if (snapshot.teams && snapshot.allyVision && focus.team >= 0) {
+          for (final ally in actors.values) {
+            if (ally.alive && !ally.isSelf && ally.team == focus.team) {
+              _markExplored(ally.pos);
+            }
+          }
+        }
       }
     }
 
@@ -365,13 +367,9 @@ class GameViewModel {
     bool ring = true,
   }) {
     if (effects.length > 90) effects.removeAt(0);
-    effects.add(VisualEffect(
-      pos: pos,
-      color: color,
-      size: size,
-      life: life,
-      ring: ring,
-    ));
+    effects.add(
+      VisualEffect(pos: pos, color: color, size: size, life: life, ring: ring),
+    );
   }
 
   void kick(double strength) {

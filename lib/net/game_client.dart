@@ -27,6 +27,7 @@ class GameClient {
   int hostId = 0;
   String roomName = '';
   int mapSize = kDefaultMapSize;
+  int mapGeneration = 0;
   int seed = 0;
   Maze? maze;
 
@@ -34,6 +35,8 @@ class GameClient {
   Timer? _joinTimer;
   Timer? _pingTimer;
   Timer? _timeoutTimer;
+  Timer? _startRetryTimer;
+  int _startAttempts = 0;
   bool _welcomed = false;
   Completer<bool>? _welcomeCompleter;
 
@@ -81,9 +84,13 @@ class GameClient {
       case 'lobby':
         final state = LobbyState.fromJson(message);
         final wasStarted = lobby.value?.started ?? false;
+        if (state.started && state.seed != 0) {
+          _buildMaze(state.seed, state.mapSize, state.mapGeneration);
+        }
         roomName = state.roomName;
         hostId = state.hostId;
         lobby.value = state;
+        if (state.started) _startRetryTimer?.cancel();
         if (wasStarted && !state.started) {
           snapshot.value = null;
         }
@@ -123,9 +130,15 @@ class GameClient {
     roomName = '${message['room'] ?? 'Комната'}';
     final seedValue = (message['seed'] as num?)?.toInt() ?? 0;
     final sizeValue = (message['size'] as num?)?.toInt() ?? kDefaultMapSize;
+    final generationValue = ((message['mg'] as num?)?.toInt() ?? 0).clamp(
+      0,
+      kMapGenerationCount - 1,
+    );
     mapSize = sizeValue;
     if (seedValue != 0) {
-      _buildMaze(seedValue, sizeValue);
+      _buildMaze(seedValue, sizeValue, generationValue);
+    } else {
+      mapGeneration = generationValue;
     }
     _welcomed = true;
     _joinTimer?.cancel();
@@ -138,17 +151,35 @@ class GameClient {
   void _handleWorld(Map<String, dynamic> message) {
     final seedValue = (message['seed'] as num?)?.toInt() ?? 0;
     final sizeValue = (message['size'] as num?)?.toInt() ?? kDefaultMapSize;
+    final generationValue = ((message['mg'] as num?)?.toInt() ?? 0).clamp(
+      0,
+      kMapGenerationCount - 1,
+    );
     mapSize = sizeValue;
     snapshot.value = null;
-    if (seedValue != 0) _buildMaze(seedValue, sizeValue);
+    if (seedValue != 0) {
+      _buildMaze(seedValue, sizeValue, generationValue);
+    } else {
+      mapGeneration = generationValue;
+    }
   }
 
-  void _buildMaze(int seedValue, int sizeValue) {
-    if (seed == seedValue && maze != null && mapSize == sizeValue) return;
+  void _buildMaze(int seedValue, int sizeValue, int generationValue) {
+    if (seed == seedValue &&
+        maze != null &&
+        mapSize == sizeValue &&
+        mapGeneration == generationValue) {
+      return;
+    }
     seed = seedValue;
     mapSize = sizeValue;
+    mapGeneration = generationValue;
     try {
-      maze = Maze.generate(size: sizeValue, seed: seedValue);
+      maze = Maze.generate(
+        size: sizeValue,
+        seed: seedValue,
+        generation: generationValue,
+      );
     } catch (_) {
       maze = null;
     }
@@ -184,11 +215,32 @@ class GameClient {
     link.send(<String, dynamic>{'t': 'cmd', 'c': command, ...extra});
   }
 
-  void startMatch() => sendCommand('start');
+  void startMatch() {
+    if (!isHost || lobby.value?.started == true) return;
+    _startRetryTimer?.cancel();
+    _startAttempts = 0;
+    _sendStartAttempt();
+    _startRetryTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (lobby.value?.started == true || _startAttempts >= 8) {
+        _startRetryTimer?.cancel();
+        _startRetryTimer = null;
+        return;
+      }
+      _sendStartAttempt();
+    });
+  }
+
+  void _sendStartAttempt() {
+    _startAttempts++;
+    sendCommand('start');
+  }
+
   void playAgain() => sendCommand('again');
   void returnToLobby() => sendCommand('lobby');
   void setBots(int count) => sendCommand('bots', <String, dynamic>{'n': count});
   void setMapSize(int size) => sendCommand('map', <String, dynamic>{'n': size});
+  void setMapGeneration(int generation) =>
+      sendCommand('generation', <String, dynamic>{'n': generation});
   void setTempo(int value) =>
       sendCommand('tempo', <String, dynamic>{'n': value});
   void setSkill(int value) =>
@@ -202,6 +254,10 @@ class GameClient {
       sendCommand('ff', <String, dynamic>{'n': value ? 1 : 0});
   void setRespawn(bool value) =>
       sendCommand('respawn', <String, dynamic>{'n': value ? 1 : 0});
+  void setRespawnDelay(int seconds) =>
+      sendCommand('respawnDelay', <String, dynamic>{'n': seconds});
+  void setAllyVision(bool value) =>
+      sendCommand('allyVision', <String, dynamic>{'n': value ? 1 : 0});
   void togglePause() => sendCommand('pause');
   void kick(int playerId) =>
       sendCommand('kick', <String, dynamic>{'id': playerId});
@@ -221,6 +277,7 @@ class GameClient {
     _joinTimer?.cancel();
     _pingTimer?.cancel();
     _timeoutTimer?.cancel();
+    _startRetryTimer?.cancel();
     if (_welcomed) {
       try {
         link.send(<String, dynamic>{'t': 'leave'});
@@ -236,6 +293,7 @@ class GameClient {
     _joinTimer?.cancel();
     _pingTimer?.cancel();
     _timeoutTimer?.cancel();
+    _startRetryTimer?.cancel();
     unawaited(_subscription?.cancel());
     unawaited(link.close());
     lobby.dispose();

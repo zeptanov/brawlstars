@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../app/room.dart';
+import '../app/settings.dart';
 import '../app/theme.dart';
 import '../game/constants.dart';
 import '../net/messages.dart';
@@ -23,6 +24,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
   final ScrollController _chatScroll = ScrollController();
   bool _handedOff = false;
   bool _navigated = false;
+  bool _starting = false;
+  Timer? _startTimeout;
 
   @override
   void initState() {
@@ -38,6 +41,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
     widget.room.client.error.removeListener(_onError);
     _chatController.dispose();
     _chatScroll.dispose();
+    _startTimeout?.cancel();
     if (!_handedOff) {
       unawaited(widget.room.close());
     }
@@ -48,7 +52,23 @@ class _LobbyScreenState extends State<LobbyScreen> {
     if (!mounted) return;
     final lobby = widget.room.client.lobby.value;
     if (lobby == null) return;
+    AppSettings.instance.saveLastLobbySettings(
+      botCount: lobby.botCount,
+      mapSize: lobby.mapSize,
+      mapGeneration: lobby.mapGeneration,
+      tempo: lobby.tempo,
+      skill: lobby.skill,
+      teams: lobby.teams,
+      deathVision: lobby.deathVision,
+      loot: lobby.loot,
+      friendlyFire: lobby.friendlyFire,
+      respawn: lobby.respawn,
+      respawnDelay: lobby.respawnDelay,
+      allyVision: lobby.allyVision,
+    );
     if (lobby.started) {
+      _starting = false;
+      _startTimeout?.cancel();
       _goToGame();
       return;
     }
@@ -136,6 +156,19 @@ class _LobbyScreenState extends State<LobbyScreen> {
       return;
     }
     client.startMatch();
+    setState(() => _starting = true);
+    _startTimeout?.cancel();
+    _startTimeout = Timer(const Duration(seconds: 6), () {
+      if (!mounted || widget.room.client.lobby.value?.started == true) return;
+      setState(() => _starting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Не удалось получить подтверждение старта. Попробуйте ещё раз.',
+          ),
+        ),
+      );
+    });
   }
 
   void _sendChat() {
@@ -562,7 +595,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
             icon: Icons.play_arrow_rounded,
             primary: true,
             height: 64,
-            onPressed: _start,
+            busy: _starting,
+            onPressed: _starting || !enough ? null : _start,
           ),
           const SizedBox(height: 10),
           const Text(
@@ -610,6 +644,19 @@ class _LobbyScreenState extends State<LobbyScreen> {
             onChanged: isHost
                 ? (i) => widget.room.client.setMapSize(kMapSizes[i])
                 : null,
+          ),
+          const SizedBox(height: 13),
+          const Text(
+            'Генерация карты',
+            style: TextStyle(fontSize: 12.5, color: Palette.muted),
+          ),
+          const SizedBox(height: 7),
+          SegmentedOptions(
+            options: kMapGenerationNames,
+            selected: lobby.mapGeneration,
+            enabled: isHost,
+            compact: true,
+            onChanged: isHost ? widget.room.client.setMapGeneration : null,
           ),
           const SizedBox(height: 13),
           const Text(
@@ -680,6 +727,21 @@ class _LobbyScreenState extends State<LobbyScreen> {
           ),
           const SizedBox(height: 13),
           const Text(
+            'Поле зрения союзника',
+            style: TextStyle(fontSize: 12.5, color: Palette.muted),
+          ),
+          const SizedBox(height: 7),
+          SegmentedOptions(
+            options: const <String>['Выкл', 'Вкл'],
+            selected: lobby.allyVision ? 1 : 0,
+            enabled: isHost && lobby.teams,
+            compact: true,
+            onChanged: isHost && lobby.teams
+                ? (i) => widget.room.client.setAllyVision(i == 1)
+                : null,
+          ),
+          const SizedBox(height: 13),
+          const Text(
             'Дружественный огонь',
             style: TextStyle(fontSize: 12.5, color: Palette.muted),
           ),
@@ -708,12 +770,43 @@ class _LobbyScreenState extends State<LobbyScreen> {
                 ? (i) => widget.room.client.setRespawn(i == 1)
                 : null,
           ),
+          if (lobby.teams && lobby.respawn) ...<Widget>[
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: <Widget>[
+                const Text(
+                  'Время до возрождения',
+                  style: TextStyle(fontSize: 12.5, color: Palette.muted),
+                ),
+                Text(
+                  '${lobby.respawnDelay} сек.',
+                  style: const TextStyle(fontSize: 12.5, color: Palette.accent),
+                ),
+              ],
+            ),
+            Slider(
+              min: kMinRespawnDelay.toDouble(),
+              max: kMaxRespawnDelay.toDouble(),
+              divisions: kMaxRespawnDelay - kMinRespawnDelay,
+              value: lobby.respawnDelay.toDouble(),
+              label: '${lobby.respawnDelay} сек.',
+              onChanged: isHost
+                  ? (value) => widget.room.client.setRespawnDelay(value.round())
+                  : null,
+              onChangeEnd: isHost
+                  ? (value) => AppSettings.instance.setDefaultRespawnDelay(
+                      value.round(),
+                    )
+                  : null,
+            ),
+          ],
           const SizedBox(height: 12),
           Text(
             lobby.teams
                 ? 'Команды по 2 бойца. Если людей не хватает, сервер сам добавит '
                       'ботов-напарников. При включённом возрождении павший игрок '
-                      'вернётся через ${kRespawnDelay.toInt()} секунд, если союзник ещё жив.'
+                      'вернётся через ${lobby.respawnDelay} секунд, если союзник ещё жив.'
                 : 'Время матча — около 3–4 минут. Побеждает последний выживший.',
             style: const TextStyle(
               fontSize: 11,

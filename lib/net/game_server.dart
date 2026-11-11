@@ -43,6 +43,7 @@ class GameServer {
   int hostId = 0;
   int botCount = 0;
   int mapSize = kDefaultMapSize;
+  int mapGeneration = 0;
   int tempo = 1;
   int skill = 1;
   bool teams = false;
@@ -50,6 +51,8 @@ class GameServer {
   int loot = 1;
   bool friendlyFire = false;
   bool respawn = false;
+  int respawnDelay = kDefaultRespawnDelay;
+  bool allyVision = true;
 
   bool started = false;
   bool paused = false;
@@ -62,7 +65,6 @@ class GameServer {
   Duration _lastElapsed = Duration.zero;
   double _simAccum = 0;
   double _snapAccum = 0;
-  int _heartbeatCount = 0;
 
   int get humanCount => _peers.length;
   bool get isEmpty => _peers.isEmpty;
@@ -157,6 +159,7 @@ class GameServer {
       'room': roomName,
       'seed': live?.seed ?? 0,
       'size': live?.mapSize ?? mapSize,
+      'mg': mapGeneration,
       'ver': kProtocolVersion,
       'name': peer.name,
     });
@@ -231,7 +234,10 @@ class GameServer {
   void _handleCommand(String command, Map<String, dynamic> message) {
     switch (command) {
       case 'start':
+        if (started) return;
+        startMatch();
       case 'again':
+        if (started && sim?.phase != MatchPhase.finished) return;
         startMatch();
       case 'bots':
         final next = (message['n'] as num?)?.toInt() ?? botCount;
@@ -240,6 +246,10 @@ class GameServer {
       case 'map':
         mapSize = (message['n'] as num?)?.toInt() ?? mapSize;
         if (!kMapSizes.contains(mapSize)) mapSize = kDefaultMapSize;
+        _broadcastLobby();
+      case 'generation':
+        mapGeneration = ((message['n'] as num?)?.toInt() ?? mapGeneration)
+            .clamp(0, kMapGenerationCount - 1);
         _broadcastLobby();
       case 'tempo':
         tempo = ((message['n'] as num?)?.toInt() ?? tempo).clamp(0, 2);
@@ -265,6 +275,16 @@ class GameServer {
         _broadcastLobby();
       case 'respawn':
         respawn = ((message['n'] as num?)?.toInt() ?? (respawn ? 1 : 0)) == 1;
+        _broadcastLobby();
+      case 'respawnDelay':
+        respawnDelay = ((message['n'] as num?)?.toInt() ?? respawnDelay).clamp(
+          kMinRespawnDelay,
+          kMaxRespawnDelay,
+        );
+        _broadcastLobby();
+      case 'allyVision':
+        allyVision =
+            ((message['n'] as num?)?.toInt() ?? (allyVision ? 1 : 0)) == 1;
         _broadcastLobby();
       case 'lobby':
         if (!started) return;
@@ -317,6 +337,7 @@ class GameServer {
       'bots': botCount,
       'max': kMaxPlayers,
       'map': mapSize,
+      'mg': mapGeneration,
       'tempo': tempo,
       'skill': skill,
       'tms': teams ? 1 : 0,
@@ -324,6 +345,9 @@ class GameServer {
       'loot': loot,
       'ff': friendlyFire ? 1 : 0,
       'rs': respawn ? 1 : 0,
+      'rsec': respawnDelay,
+      'av': allyVision ? 1 : 0,
+      'seed': sim?.seed ?? 0,
       'chat': _chat.map((c) => c.toList()).toList(),
       'canPause': allowPause ? 1 : 0,
       'code': roomId,
@@ -402,6 +426,7 @@ class GameServer {
     sim = GameSim(
       seed: _matchSeed,
       mapSize: mapSize,
+      mapGeneration: mapGeneration,
       specs: specs,
       tempo: tempo,
       botSkill: skillValue(skill),
@@ -410,6 +435,8 @@ class GameServer {
       deathVision: deathVision,
       loot: loot,
       respawn: respawn,
+      respawnDelay: respawnDelay,
+      allyVision: allyVision,
     );
     started = true;
     paused = false;
@@ -420,6 +447,7 @@ class GameServer {
       't': 'w',
       'seed': _matchSeed,
       'size': mapSize,
+      'mg': mapGeneration,
     });
     _broadcastLobby();
     _ensureTicker();
@@ -442,9 +470,8 @@ class GameServer {
 
   void _ensureTicker() {
     _heartbeat ??= Timer.periodic(const Duration(seconds: 1), (_) {
-      _heartbeatCount++;
       _broadcast(<String, dynamic>{'t': 'hb'});
-      if (_heartbeatCount % 5 == 0) _broadcastLobby();
+      _broadcastLobby();
     });
     if (_ticker != null) return;
     _clock
@@ -461,9 +488,8 @@ class GameServer {
 
   void _ensureHeartbeat() {
     _heartbeat ??= Timer.periodic(const Duration(seconds: 1), (_) {
-      _heartbeatCount++;
       _broadcast(<String, dynamic>{'t': 'hb'});
-      if (_heartbeatCount % 5 == 0 && !started) _broadcastLobby();
+      _broadcastLobby();
     });
   }
 

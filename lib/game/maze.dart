@@ -21,9 +21,14 @@ class Maze {
   int get roomsPerAxis => (size - 1) ~/ roomBlock;
   double get half => worldSize / 2;
 
-  factory Maze.generate({required int size, required int seed}) {
+  factory Maze.generate({
+    required int size,
+    required int seed,
+    int generation = 0,
+  }) {
     final rooms = (size - 1) ~/ roomBlock;
     assert((size - 1) % roomBlock == 0, 'size must be 10k+1');
+    final style = generation.clamp(0, kMapGenerationCount - 1);
     final cells = size * size;
     final walls = Uint8List(cells)..fillRange(0, cells, 1);
     final rng = math.Random(seed);
@@ -54,9 +59,18 @@ class Maze {
     // 2. Укрытия внутри комнат (не перекрывают двери у краёв).
     for (var ry = 0; ry < rooms; ry++) {
       for (var rx = 0; rx < rooms; rx++) {
-        if (rng.nextDouble() < 0.28) continue;
         final x0 = rx * roomBlock + 1;
         final y0 = ry * roomBlock + 1;
+        if (style == 1) {
+          for (final offset in <int>[3, 6]) {
+            for (var y = 1; y < roomBlock - 2; y++) {
+              if (y == 2 || y == 7) continue;
+              setWall(x0 + offset, y0 + y);
+            }
+          }
+          continue;
+        }
+        if (rng.nextDouble() < (style == 2 ? 0.88 : 0.28)) continue;
         final cx = x0 + 4;
         final cy = y0 + 4;
         switch (rng.nextInt(6)) {
@@ -101,15 +115,23 @@ class Maze {
       for (var rx = 0; rx < rooms; rx++) {
         if (rx < rooms - 1) {
           final wallX = (rx + 1) * roomBlock;
-          final doorY = ry * roomBlock + 2 + rng.nextInt(5);
-          for (var y = 0; y < 3; y++) {
+          final width = style == 2 ? 5 : 3;
+          final doorY =
+              ry * roomBlock +
+              (style == 2 ? 1 : 2) +
+              rng.nextInt(style == 2 ? 5 : 5);
+          for (var y = 0; y < width; y++) {
             setFloor(wallX, doorY + y);
           }
         }
         if (ry < rooms - 1) {
           final wallY = (ry + 1) * roomBlock;
-          final doorX = rx * roomBlock + 2 + rng.nextInt(5);
-          for (var x = 0; x < 3; x++) {
+          final width = style == 2 ? 5 : 3;
+          final doorX =
+              rx * roomBlock +
+              (style == 2 ? 1 : 2) +
+              rng.nextInt(style == 2 ? 5 : 5);
+          for (var x = 0; x < width; x++) {
             setFloor(doorX + x, wallY);
           }
         }
@@ -135,10 +157,8 @@ class Maze {
         !wallAt(tx, ty + 1);
   }
 
-  bool isOpenWorld(double x, double y) => isOpenTile(
-        (x / kTileSize).floor(),
-        (y / kTileSize).floor(),
-      );
+  bool isOpenWorld(double x, double y) =>
+      isOpenTile((x / kTileSize).floor(), (y / kTileSize).floor());
 
   /// Пересечение круга и стен.
   bool circleHitsWall(double x, double y, double radius) {
@@ -186,10 +206,12 @@ class Maze {
     var mapY = (sy / kTileSize).floor();
     if (wallAt(mapX, mapY)) return 0;
 
-    final deltaDistX =
-        dx.abs() < 1e-9 ? double.infinity : (kTileSize / dx).abs();
-    final deltaDistY =
-        dy.abs() < 1e-9 ? double.infinity : (kTileSize / dy).abs();
+    final deltaDistX = dx.abs() < 1e-9
+        ? double.infinity
+        : (kTileSize / dx).abs();
+    final deltaDistY = dy.abs() < 1e-9
+        ? double.infinity
+        : (kTileSize / dy).abs();
 
     final stepX = dx >= 0 ? 1 : -1;
     final stepY = dy >= 0 ? 1 : -1;
@@ -197,13 +219,13 @@ class Maze {
     var sideDistX = dx > 0
         ? ((mapX + 1) * kTileSize - sx) / dx
         : dx < 0
-            ? (sx - mapX * kTileSize) / -dx
-            : double.infinity;
+        ? (sx - mapX * kTileSize) / -dx
+        : double.infinity;
     var sideDistY = dy > 0
         ? ((mapY + 1) * kTileSize - sy) / dy
         : dy < 0
-            ? (sy - mapY * kTileSize) / -dy
-            : double.infinity;
+        ? (sy - mapY * kTileSize) / -dy
+        : double.infinity;
 
     var dist = 0.0;
     for (var guard = 0; guard < 512; guard++) {
@@ -263,10 +285,12 @@ class Maze {
     final result = <Offset>[];
     for (var ry = 0; ry < rooms; ry++) {
       for (var rx = 0; rx < rooms; rx++) {
-        result.add(Offset(
-          (rx * roomBlock + 5.5) * kTileSize,
-          (ry * roomBlock + 5.5) * kTileSize,
-        ));
+        result.add(
+          Offset(
+            (rx * roomBlock + 5.5) * kTileSize,
+            (ry * roomBlock + 5.5) * kTileSize,
+          ),
+        );
       }
     }
     return result;
@@ -293,8 +317,9 @@ class Maze {
     final picked = <({int rx, int ry, Offset pos})>[];
     for (final c in candidates) {
       if (picked.length >= count) break;
-      final ok = picked.every((p) =>
-          (p.rx - c.rx).abs() >= 2 || (p.ry - c.ry).abs() >= 2);
+      final ok = picked.every(
+        (p) => (p.rx - c.rx).abs() >= 2 || (p.ry - c.ry).abs() >= 2,
+      );
       if (ok) picked.add(c);
     }
     for (final c in candidates) {

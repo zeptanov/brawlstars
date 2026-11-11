@@ -120,7 +120,15 @@ class GameSim {
     this.deathVision = 1,
     this.loot = 1,
     this.respawn = false,
-  }) : maze = Maze.generate(size: mapSize, seed: seed),
+    int respawnDelay = kDefaultRespawnDelay,
+    this.allyVision = true,
+    this.mapGeneration = 0,
+  }) : respawnDelay = respawnDelay.clamp(kMinRespawnDelay, kMaxRespawnDelay),
+       maze = Maze.generate(
+         size: mapSize,
+         seed: seed,
+         generation: mapGeneration,
+       ),
        rng = math.Random(seed ^ 0x0BADC0DE) {
     zone = ZoneTimeline.generate(
       worldSize: maze.worldSize,
@@ -151,6 +159,7 @@ class GameSim {
 
   final int seed;
   final int mapSize;
+  final int mapGeneration;
   final int tempo;
   final double botSkill;
   final bool teams;
@@ -163,6 +172,8 @@ class GameSim {
 
   /// Возрождение павших бойцов рядом с живым союзником (только в командах).
   final bool respawn;
+  final int respawnDelay;
+  final bool allyVision;
   final Maze maze;
   final math.Random rng;
   final Map<int, SimPlayer> players = <int, SimPlayer>{};
@@ -411,6 +422,7 @@ class GameSim {
     p.ghostTime = math.max(0, p.ghostTime - dt);
     p.radarTime = math.max(0, p.radarTime - dt);
     p.aim = p.input.aim;
+    p.hp = math.min(kMaxHp, p.hp + kHealthRegenPerSecond * dt);
 
     final def = p.weaponDef;
     if (p.reloadTimer > 0) {
@@ -500,7 +512,7 @@ class GameSim {
   void _respawnPlayer(SimPlayer p) {
     final ally = _livingAllyOf(p);
     final z = zoneNow;
-    p.pos = ally != null ? _respawnPointNear(ally.pos, z) : _safeSpawnForJoin();
+    p.pos = ally != null ? _respawnPosition(ally.pos, z) : _safeSpawnForJoin();
     p.alive = true;
     p.respawnAt = 0;
     p.deathTime = 0;
@@ -517,23 +529,46 @@ class GameSim {
     p.radarTime = 0;
     p.vx = 0;
     p.vy = 0;
+    p.input = InputState.idle;
     events.add(RespawnEvent(p.id));
   }
 
-  Offset _respawnPointNear(Offset anchor, ZoneSample z) {
-    for (var i = 0; i < 90; i++) {
-      final a = rng.nextDouble() * math.pi * 2;
-      final r = 52 + rng.nextDouble() * 92;
-      final pos = anchor + Offset(math.cos(a) * r, math.sin(a) * r);
-      if (!z.contains(pos.dx, pos.dy)) continue;
-      if (!maze.isOpenWorld(pos.dx, pos.dy)) continue;
-      return pos;
-    }
-    if (z.contains(anchor.dx, anchor.dy) &&
-        maze.isOpenWorld(anchor.dx, anchor.dy)) {
+  Offset _respawnPosition(Offset anchor, ZoneSample z) {
+    if (!maze.circleHitsWall(anchor.dx, anchor.dy, kPlayerRadius)) {
       return anchor;
     }
-    return _safeSpawnForJoin();
+
+    final anchorX = (anchor.dx / kTileSize).floor();
+    final anchorY = (anchor.dy / kTileSize).floor();
+    Offset? nearestInZone;
+    Offset? nearestAnywhere;
+    var nearestInZoneDistance = double.infinity;
+    var nearestAnywhereDistance = double.infinity;
+    for (var radius = 0; radius < maze.size; radius++) {
+      for (var dy = -radius; dy <= radius; dy++) {
+        for (var dx = -radius; dx <= radius; dx++) {
+          if (radius > 0 && dx.abs() != radius && dy.abs() != radius) {
+            continue;
+          }
+          final tx = anchorX + dx;
+          final ty = anchorY + dy;
+          if (!maze.isOpenTile(tx, ty)) continue;
+          final pos = maze.tileCenter(tx, ty);
+          if (maze.circleHitsWall(pos.dx, pos.dy, kPlayerRadius)) continue;
+          final distance = (pos - anchor).distanceSquared;
+          if (distance < nearestAnywhereDistance) {
+            nearestAnywhere = pos;
+            nearestAnywhereDistance = distance;
+          }
+          if (z.contains(pos.dx, pos.dy) && distance < nearestInZoneDistance) {
+            nearestInZone = pos;
+            nearestInZoneDistance = distance;
+          }
+        }
+      }
+      if (nearestInZone != null) return nearestInZone;
+    }
+    return nearestAnywhere ?? _safeSpawnForJoin();
   }
 
   void _tryShoot(SimPlayer p) {
@@ -661,7 +696,7 @@ class GameSim {
 
     if (respawn && teams) {
       if (_hasLivingAlly(victim)) {
-        victim.respawnAt = matchTime + kRespawnDelay;
+        victim.respawnAt = matchTime + respawnDelay;
       } else {
         // Живых союзников не осталось — возрождение невозможно,
         // сбрасываем таймеры у всех павших членов команды.
@@ -858,8 +893,28 @@ class GameSim {
     double extra = 0,
     bool ghost = false,
     bool spectator = false,
+    bool shareAllyVision = false,
   }) {
     if (spectator || observer == null) return true;
+    if (_canSeeFrom(observer, target, extra: extra, ghost: ghost)) return true;
+    if (!shareAllyVision || !allyVision || !teams || observer.team < 0) {
+      return false;
+    }
+    for (final ally in players.values) {
+      if (ally.id == observer.id || !ally.alive || ally.team != observer.team) {
+        continue;
+      }
+      if (_canSeeFrom(ally, target, extra: extra, ghost: ghost)) return true;
+    }
+    return false;
+  }
+
+  bool _canSeeFrom(
+    SimPlayer observer,
+    Offset target, {
+    required double extra,
+    required bool ghost,
+  }) {
     final d = (target - observer.pos).distance;
     if (d > kVisionRadius + extra) return false;
     if (ghost && d > kGhostVisibleRadius) return false;
@@ -915,6 +970,22 @@ class GameSim {
     final observer = players[observerId];
     final dead = observer == null || !observer.alive;
     final target = dead ? _spectateTargetFor(observerId, spectateId) : null;
+    var respawnRemaining = 0.0;
+    if (respawn && teams && observer != null) {
+      if (!observer.alive && observer.respawnAt > 0) {
+        respawnRemaining = math.max(0.0, observer.respawnAt - matchTime);
+      } else {
+        for (final player in players.values) {
+          if (player.team != observer.team ||
+              player.alive ||
+              player.respawnAt <= 0) {
+            continue;
+          }
+          respawnRemaining = math.max(0.0, player.respawnAt - matchTime);
+          break;
+        }
+      }
+    }
     final fogSpectator = dead && deathVision == 0 && target != null;
     final viewer = fogSpectator ? target : observer;
     final spectator = dead && !fogSpectator;
@@ -937,6 +1008,7 @@ class GameSim {
                 p.pos,
                 ghost: p.ghostTime > 0,
                 spectator: spectator,
+                shareAllyVision: !dead,
               ));
       if (!visible) continue;
       playerSnaps.add(
@@ -963,7 +1035,13 @@ class GameSim {
     final bulletSnaps = <BulletSnapshot>[];
     for (final b in bullets) {
       if (!spectator &&
-          !_canSee(viewer, Offset(b.x, b.y), extra: 80, spectator: false)) {
+          !_canSee(
+            viewer,
+            Offset(b.x, b.y),
+            extra: 80,
+            spectator: false,
+            shareAllyVision: !dead,
+          )) {
         continue;
       }
       bulletSnaps.add(BulletSnapshot(b.x, b.y, b.vx, b.vy, b.weaponIndex));
@@ -972,7 +1050,14 @@ class GameSim {
     final pickupSnaps = <PickupSnapshot>[];
     for (final pk in pickups) {
       if (!pk.active) continue;
-      if (!spectator && !_canSee(viewer, pk.pos, extra: 30, spectator: false)) {
+      if (!spectator &&
+          !_canSee(
+            viewer,
+            pk.pos,
+            extra: 30,
+            spectator: false,
+            shareAllyVision: !dead,
+          )) {
         continue;
       }
       pickupSnaps.add(
@@ -1043,9 +1128,8 @@ class GameSim {
       fogView: fogSpectator,
       spectateTarget: target?.id ?? 0,
       respawn: respawn,
-      respawnRemaining: observer != null && !observer.alive
-          ? math.max(0.0, observer.respawnAt - matchTime).toDouble()
-          : 0,
+      respawnRemaining: respawnRemaining.toDouble(),
+      allyVision: allyVision,
     );
   }
 
@@ -1053,26 +1137,32 @@ class GameSim {
   // API для ботов
   // -------------------------------------------------------------------------
 
-  SimPlayer? findVisibleEnemy(SimPlayer me, double maxDist) {
+  SimPlayer? findVisibleEnemy(
+    SimPlayer me,
+    double maxDist, {
+    bool preferWeakTargets = false,
+  }) {
     final limit = math.min(maxDist, kVisionRadius);
     SimPlayer? best;
-    var bestDist = limit;
+    var bestScore = double.infinity;
     for (final p in players.values) {
       if (!p.alive || p.id == me.id) continue;
       if (me.team >= 0 && p.team == me.team) continue;
       final d = (p.pos - me.pos).distance;
-      if (d > bestDist) continue;
+      if (d > limit) continue;
       if (p.ghostTime > 0 && d > kGhostVisibleRadius) continue;
       if (!maze.lineOfSight(me.pos.dx, me.pos.dy, p.pos.dx, p.pos.dy)) {
         continue;
       }
+      final score = preferWeakTargets ? d * (0.65 + p.hp / kMaxHp * 0.35) : d;
+      if (score >= bestScore) continue;
       best = p;
-      bestDist = d;
+      bestScore = score;
     }
     return best;
   }
 
-  Offset botObjective(SimPlayer me) {
+  Offset botObjective(SimPlayer me, {bool prioritizeSupplies = false}) {
     final z = zoneNow;
     if ((me.pos - z.center).distance > z.radius * 0.72) {
       final a = rng.nextDouble() * math.pi * 2;
@@ -1080,17 +1170,47 @@ class GameSim {
       return z.center + Offset(math.cos(a) * r, math.sin(a) * r);
     }
     SimPickup? best;
-    var bestDist = 720.0;
+    var bestScore = prioritizeSupplies ? 1050.0 : 720.0;
     for (final pk in pickups) {
       if (!pk.active) continue;
+      if (pk.type == PickupType.medkit && me.hp >= kMaxHp) continue;
+      final pickupWeapon = pickupByIndex(pk.type.index).weapon;
+      if (pickupWeapon != null) {
+        final weapon = weaponByIndex(pickupWeapon.index);
+        if (me.weaponIndex == pickupWeapon.index && me.ammo >= weapon.magSize) {
+          continue;
+        }
+      }
       final d = (pk.pos - me.pos).distance;
-      if (d < bestDist) {
+      var priority = 1.0;
+      if (prioritizeSupplies) {
+        switch (pk.type) {
+          case PickupType.medkit:
+            priority = me.hp < 45 ? 0.42 : (me.hp < 75 ? 0.68 : 1.7);
+          case PickupType.shield:
+            priority = me.shield < 25 ? 0.62 : 1.35;
+          case PickupType.smg ||
+              PickupType.shotgun ||
+              PickupType.rifle ||
+              PickupType.sniper:
+            priority = me.weaponIndex == WeaponId.pistol.index ? 0.55 : 1.3;
+          case PickupType.speed || PickupType.radar || PickupType.ghost:
+            priority = 0.82;
+        }
+      }
+      final score = d * priority;
+      if (score < bestScore) {
         best = pk;
-        bestDist = d;
+        bestScore = score;
       }
     }
-    if (best != null && rng.nextDouble() < 0.72) {
+    if (best != null && (prioritizeSupplies || rng.nextDouble() < 0.72)) {
       return best.pos;
+    }
+    if (prioritizeSupplies && me.hp < 55) {
+      for (final pk in pickups) {
+        if (pk.active && pk.type == PickupType.medkit) return pk.pos;
+      }
     }
     for (var i = 0; i < 40; i++) {
       final a = rng.nextDouble() * math.pi * 2;
@@ -1106,12 +1226,18 @@ class GameSim {
 // ИИ ботов
 // ---------------------------------------------------------------------------
 
+enum BotStyle { hunter, duelist, scavenger, survivor }
+
 class BotBrain {
   BotBrain(this.playerId, {required this.skill, required int seed})
-    : _rng = math.Random(seed);
+    : _rng = math.Random(seed),
+      style =
+          BotStyle.values[math.Random(seed ^ 0x3C6EF35F)
+              .nextInt(BotStyle.values.length)];
 
   final int playerId;
   final double skill;
+  final BotStyle style;
   final math.Random _rng;
 
   double _think = 0;
@@ -1136,37 +1262,59 @@ class BotBrain {
     _stuckCheck += dt;
 
     final def = me.weaponDef;
-    final enemy = sim.findVisibleEnemy(me, kVisionRadius);
+    final enemy = sim.findVisibleEnemy(
+      me,
+      kVisionRadius,
+      preferWeakTargets: skill >= 1.0,
+    );
     if (enemy != null) {
       if (_enemyId != enemy.id) {
         _enemyId = enemy.id;
         _acquire =
-            math.max(0.08, 0.55 - 0.22 * skill) + _rng.nextDouble() * 0.16;
+            math.max(0.04, 0.62 - 0.35 * skill) +
+            _rng.nextDouble() * (0.22 / skill);
       }
       _acquire -= dt;
       final dist = (enemy.pos - me.pos).distance;
-      final lead = dist / def.bulletSpeed * 0.8;
+      final lead = dist / def.bulletSpeed * (0.45 + 0.38 * skill);
       final predicted = enemy.pos + Offset(enemy.vx, enemy.vy) * lead;
       final desired = math.atan2(
         predicted.dy - me.pos.dy,
         predicted.dx - me.pos.dx,
       );
-      final noise = (0.018 + 0.052 / skill) * (_rng.nextDouble() * 2 - 1);
+      final noise =
+          (0.012 + 0.075 / (skill + 0.25)) * (_rng.nextDouble() * 2 - 1);
       me.aim = desired + noise;
 
       if (_strafeTimer <= 0) {
         _strafeDir = _rng.nextBool() ? 1 : -1;
-        _strafeTimer = 0.5 + _rng.nextDouble() * 0.85;
+        _strafeTimer =
+            0.35 + _rng.nextDouble() * (style == BotStyle.duelist ? 0.5 : 1.2);
       }
       final perp = desired + math.pi / 2 * _strafeDir;
       var forward = 0.0;
-      if (dist > 340) {
+      final preferredRange = switch (me.weaponDef.id) {
+        WeaponId.shotgun => 190.0,
+        WeaponId.smg => 300.0,
+        WeaponId.sniper => 650.0,
+        WeaponId.rifle => 440.0,
+        WeaponId.pistol => 360.0,
+      };
+      final rangeFactor = switch (style) {
+        BotStyle.hunter => 0.72,
+        BotStyle.duelist => 0.95,
+        BotStyle.scavenger => 1.1,
+        BotStyle.survivor => 1.24,
+      };
+      final idealRange = preferredRange * rangeFactor;
+      if (dist > idealRange + 55) {
         forward = 1.0;
-      } else if (dist < 155) {
+      } else if (dist < idealRange - 55) {
         forward = -1.0;
       }
-      var mx = math.cos(desired) * forward + math.cos(perp) * 0.85;
-      var my = math.sin(desired) * forward + math.sin(perp) * 0.85;
+      final strafe = style == BotStyle.hunter ? 0.45 : 0.95;
+      var mx = math.cos(desired) * forward + math.cos(perp) * strafe;
+      var my = math.sin(desired) * forward + math.sin(perp) * strafe;
 
       final z = sim.zoneNow;
       if (!z.contains(me.pos.dx, me.pos.dy)) {
@@ -1201,7 +1349,9 @@ class BotBrain {
         }
       }
 
-      if (me.dashCooldown <= 0 && me.hp < 52 && _rng.nextDouble() < 0.02) {
+      if (me.dashCooldown <= 0 &&
+          (me.hp < 52 || _incomingThreat(sim, me)) &&
+          _rng.nextDouble() < 0.025 + 0.12 * skill) {
         _dashWish = true;
       }
 
@@ -1225,10 +1375,17 @@ class BotBrain {
     if (_think <= 0 ||
         _objective == null ||
         (_objective! - me.pos).distance < 70) {
-      _objective = sim.botObjective(me);
+      _objective = sim.botObjective(
+        me,
+        prioritizeSupplies:
+            style == BotStyle.scavenger ||
+            skill >= 1.35 ||
+            me.hp < 55 ||
+            me.ammo < me.weaponDef.magSize * 0.3,
+      );
       _path = sim.maze.findPath(me.pos, _objective!);
       _pathIndex = 0;
-      _think = 0.9 + _rng.nextDouble() * 1.2;
+      _think = 0.55 + _rng.nextDouble() * (1.7 / skill);
     }
 
     while (_pathIndex < _path.length &&
@@ -1275,5 +1432,23 @@ class BotBrain {
       aim: me.aim,
       reload: me.ammo < def.magSize * 0.35,
     );
+  }
+
+  bool _incomingThreat(GameSim sim, SimPlayer me) {
+    for (final bullet in sim.bullets) {
+      if (bullet.ownerId == me.id) continue;
+      final dx = me.pos.dx - bullet.x;
+      final dy = me.pos.dy - bullet.y;
+      final speedSquared = bullet.vx * bullet.vx + bullet.vy * bullet.vy;
+      if (speedSquared <= 0) continue;
+      final time = (dx * bullet.vx + dy * bullet.vy) / speedSquared;
+      if (time <= 0 || time > 0.32) continue;
+      final nearestX = bullet.x + bullet.vx * time;
+      final nearestY = bullet.y + bullet.vy * time;
+      if ((me.pos - Offset(nearestX, nearestY)).distance < kPlayerRadius + 14) {
+        return true;
+      }
+    }
+    return false;
   }
 }

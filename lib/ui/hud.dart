@@ -112,8 +112,7 @@ class GameHud extends StatelessWidget {
             top: 8,
             child: Row(
               children: <Widget>[
-                if (!compact)
-                  _ZoneBadge(vm: vm, onTap: onToggleScoreboard),
+                if (!compact) _ZoneBadge(vm: vm, onTap: onToggleScoreboard),
                 const Spacer(),
                 _MatchBar(vm: vm, compact: compact),
                 const Spacer(),
@@ -145,9 +144,7 @@ class GameHud extends StatelessWidget {
                 const SizedBox(height: 8),
                 if (killfeed.isNotEmpty)
                   ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: compact ? 210 : 270,
-                    ),
+                    constraints: BoxConstraints(maxWidth: compact ? 210 : 270),
                     child: _KillFeed(
                       entries: killfeed,
                       myId: myId,
@@ -303,9 +300,7 @@ class _MatchBar extends StatelessWidget {
               fontSize: compact ? 13 : 15,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.6,
-              fontFeatures: const <FontFeature>[
-                FontFeature.tabularFigures(),
-              ],
+              fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
             ),
           ),
           if (compact) ...<Widget>[
@@ -355,9 +350,7 @@ class _TopButtons extends StatelessWidget {
         ),
         const SizedBox(width: 6),
         _HudIcon(
-          icon: touchControls
-              ? Icons.keyboard_rounded
-              : Icons.gamepad_rounded,
+          icon: touchControls ? Icons.keyboard_rounded : Icons.gamepad_rounded,
           size: size,
           tooltip: 'Сменить управление',
           onPressed: onToggleControls,
@@ -401,9 +394,7 @@ class _HudIcon extends StatelessWidget {
               ? Palette.accent.withValues(alpha: 0.18)
               : Palette.surfaceAlt.withValues(alpha: 0.82),
           borderRadius: BorderRadius.circular(11),
-          border: Border.all(
-            color: active ? Palette.accent : Palette.line,
-          ),
+          border: Border.all(color: active ? Palette.accent : Palette.line),
         ),
         child: Icon(
           icon,
@@ -499,17 +490,15 @@ class _RadarPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2 - 1;
     final bg = Paint()
-      ..shader = ui.Gradient.radial(
-        center,
-        radius,
-        <Color>[
-          const Color(0xFF071420),
-          const Color(0xFF040A10),
-        ],
-      );
+      ..shader = ui.Gradient.radial(center, radius, <Color>[
+        const Color(0xFF071420),
+        const Color(0xFF040A10),
+      ]);
     canvas.drawCircle(center, radius, bg);
     canvas.save();
-    canvas.clipPath(Path()..addOval(Rect.fromCircle(center: center, radius: radius)));
+    canvas.clipPath(
+      Path()..addOval(Rect.fromCircle(center: center, radius: radius)),
+    );
 
     final grid = Paint()
       ..style = PaintingStyle.stroke
@@ -533,11 +522,9 @@ class _RadarPainter extends CustomPainter {
     final scale = radius / range;
     final zone = vm.zone;
     if (me != null) {
-      final zoneCenter = center +
-          Offset(
-            (zone.x - me.pos.dx) * scale,
-            (zone.y - me.pos.dy) * scale,
-          );
+      final zoneCenter =
+          center +
+          Offset((zone.x - me.pos.dx) * scale, (zone.y - me.pos.dy) * scale);
       final zonePaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = vm.zoneShrinking ? 2.2 : 1.4
@@ -561,14 +548,10 @@ class _RadarPainter extends CustomPainter {
         p,
         10,
         Paint()
-          ..shader = ui.Gradient.radial(
-            p,
-            10,
-            <Color>[
-              Palette.gold.withValues(alpha: 0.45 * pulse),
-              Palette.gold.withValues(alpha: 0),
-            ],
-          ),
+          ..shader = ui.Gradient.radial(p, 10, <Color>[
+            Palette.gold.withValues(alpha: 0.45 * pulse),
+            Palette.gold.withValues(alpha: 0),
+          ]),
       );
       canvas.drawCircle(p, 2.8, Paint()..color = Palette.gold);
       canvas.drawLine(
@@ -581,6 +564,35 @@ class _RadarPainter extends CustomPainter {
     }
 
     if (me != null) {
+      if (vm.snapshot?.teams == true) {
+        final myTeam = me.team;
+        for (final actor in vm.actors.values) {
+          if (!actor.alive || actor.isSelf || actor.team != myTeam) continue;
+          final delta = actor.pos - me.pos;
+          final distance = delta.distance;
+          if (distance < 1) continue;
+          final markerDistance = math.min(distance * scale, radius * 0.91);
+          final marker = center + delta / distance * markerDistance;
+          canvas.drawCircle(
+            marker,
+            5.5,
+            Paint()..color = const Color(0xFF7FB2FF).withValues(alpha: 0.25),
+          );
+          canvas.drawCircle(
+            marker,
+            3,
+            Paint()..color = const Color(0xFF7FB2FF),
+          );
+          canvas.drawCircle(
+            marker,
+            4.2,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1
+              ..color = Colors.white.withValues(alpha: 0.8),
+          );
+        }
+      }
       final aim = vm.myAim;
       final dir = Offset(math.cos(aim), math.sin(aim));
       final side = Offset(-dir.dy, dir.dx);
@@ -641,11 +653,7 @@ class _KillFeed extends StatelessWidget {
 }
 
 class _KillRow extends StatelessWidget {
-  const _KillRow({
-    required this.entry,
-    required this.myId,
-    required this.now,
-  });
+  const _KillRow({required this.entry, required this.myId, required this.now});
 
   final KillFeedEntry entry;
   final int myId;
@@ -668,8 +676,9 @@ class _KillRow extends StatelessWidget {
           color: Colors.black.withValues(alpha: 0.52),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: (mine ? Palette.accent : Palette.line)
-                .withValues(alpha: 0.35),
+            color: (mine ? Palette.accent : Palette.line).withValues(
+              alpha: 0.35,
+            ),
           ),
         ),
         child: Row(
@@ -688,11 +697,7 @@ class _KillRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 5),
-            Icon(
-              _weaponIcon(def.id),
-              size: 12,
-              color: Color(def.color),
-            ),
+            Icon(_weaponIcon(def.id), size: 12, color: Color(def.color)),
             const SizedBox(width: 5),
             Flexible(
               child: Text(
@@ -789,11 +794,7 @@ class _VitalsCard extends StatelessWidget {
           const SizedBox(height: 6),
           _Bar(value: hpRatio, color: hpColor, height: 7),
           const SizedBox(height: 4),
-          _Bar(
-            value: shieldRatio,
-            color: const Color(0xFF7FB2FF),
-            height: 4,
-          ),
+          _Bar(value: shieldRatio, color: const Color(0xFF7FB2FF), height: 4),
           if (speed > 0 || ghost > 0) ...<Widget>[
             const SizedBox(height: 7),
             Wrap(
@@ -949,11 +950,7 @@ class _WeaponCard extends StatelessWidget {
 }
 
 class _Bar extends StatelessWidget {
-  const _Bar({
-    required this.value,
-    required this.color,
-    required this.height,
-  });
+  const _Bar({required this.value, required this.color, required this.height});
 
   final double value;
   final Color color;
@@ -1080,9 +1077,7 @@ class _BannerView extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.black.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: banner.color.withValues(alpha: 0.5),
-          ),
+          border: Border.all(color: banner.color.withValues(alpha: 0.5)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1105,10 +1100,7 @@ class _BannerView extends StatelessWidget {
                 if (banner.detail != null)
                   Text(
                     banner.detail!,
-                    style: const TextStyle(
-                      fontSize: 9.5,
-                      color: Palette.muted,
-                    ),
+                    style: const TextStyle(fontSize: 9.5, color: Palette.muted),
                   ),
               ],
             ),
@@ -1432,8 +1424,9 @@ class ResultsOverlay extends StatelessWidget {
           child: SingleChildScrollView(
             child: NeonPanel(
               padding: const EdgeInsets.all(20),
-              borderColor: (win ? Palette.gold : Palette.accent)
-                  .withValues(alpha: 0.45),
+              borderColor: (win ? Palette.gold : Palette.accent).withValues(
+                alpha: 0.45,
+              ),
               glow: true,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 560),
@@ -1465,11 +1458,11 @@ class ResultsOverlay extends StatelessWidget {
                       Text(
                         snapshot.teams && myTeam >= 0
                             ? 'Команда ${myTeam + 1} · '
-                                '${myRow.kills} убийств · '
-                                '${myRow.damage.round()} урона'
+                                  '${myRow.kills} убийств · '
+                                  '${myRow.damage.round()} урона'
                             : 'Вы заняли ${myRow.placement}-е место · '
-                                '${myRow.kills} убийств · '
-                                '${myRow.damage.round()} урона',
+                                  '${myRow.kills} убийств · '
+                                  '${myRow.damage.round()} урона',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           fontSize: 11.5,
@@ -1500,8 +1493,7 @@ class ResultsOverlay extends StatelessWidget {
                             primary: isHost,
                             busy: awaiting,
                             height: 48,
-                            onPressed:
-                                isHost && !awaiting ? onAgain : null,
+                            onPressed: isHost && !awaiting ? onAgain : null,
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -1512,8 +1504,8 @@ class ResultsOverlay extends StatelessWidget {
                                 : 'В меню',
                             subtitle: lobbyMode
                                 ? (canLobby
-                                    ? 'Сменить настройки комнаты'
-                                    : 'Хост вернёт всех в лобби')
+                                      ? 'Сменить настройки комнаты'
+                                      : 'Хост вернёт всех в лобби')
                                 : 'Вернуться в главное меню',
                             icon: lobbyMode
                                 ? Icons.meeting_room_outlined
@@ -1521,9 +1513,7 @@ class ResultsOverlay extends StatelessWidget {
                             busy: awaitingLobby,
                             height: 48,
                             onPressed: lobbyMode
-                                ? (canLobby && !awaitingLobby
-                                    ? onLobby
-                                    : null)
+                                ? (canLobby && !awaitingLobby ? onLobby : null)
                                 : onExit,
                           ),
                         ),
@@ -1593,8 +1583,10 @@ class _ResultRowView extends StatelessWidget {
     final medal = row.placement == 1
         ? Palette.gold
         : (row.placement == 2
-            ? const Color(0xFFC7D3E3)
-            : (row.placement == 3 ? const Color(0xFFD79A6A) : Palette.mutedDark));
+              ? const Color(0xFFC7D3E3)
+              : (row.placement == 3
+                    ? const Color(0xFFD79A6A)
+                    : Palette.mutedDark));
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),

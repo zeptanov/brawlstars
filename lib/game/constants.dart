@@ -11,13 +11,22 @@ const double kGhostVisibleRadius = 150.0;
 
 const int kDefaultMapSize = 61;
 const List<int> kMapSizes = <int>[41, 61, 81];
+const int kMapGenerationCount = 3;
+const List<String> kMapGenerationNames = <String>[
+  'Кварталы',
+  'Коридоры',
+  'Открытая',
+];
 
 const int kMaxPlayers = 8;
 const int kGamePort = 47777;
 const int kDiscoveryPort = 47780;
-const int kProtocolVersion = 9;
+const int kProtocolVersion = 13;
 const int kTeamSize = 2;
-const double kRespawnDelay = 6.0;
+const int kDefaultRespawnDelay = 15;
+const int kMinRespawnDelay = 5;
+const int kMaxRespawnDelay = 60;
+const double kHealthRegenPerSecond = 0.2;
 
 const double kSimDt = 1.0 / 30.0;
 const double kSnapshotInterval = 1.0 / 20.0;

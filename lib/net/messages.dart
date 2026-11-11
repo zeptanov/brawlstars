@@ -28,29 +28,28 @@ class InputState {
   static const InputState idle = InputState();
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'mx': double.parse(moveX.toStringAsFixed(2)),
-        'my': double.parse(moveY.toStringAsFixed(2)),
-        'a': double.parse(aim.toStringAsFixed(3)),
-        if (fire) 'f': 1,
-        if (dash) 'd': 1,
-        if (reload) 'r': 1,
-      };
+    'mx': double.parse(moveX.toStringAsFixed(2)),
+    'my': double.parse(moveY.toStringAsFixed(2)),
+    'a': double.parse(aim.toStringAsFixed(3)),
+    if (fire) 'f': 1,
+    if (dash) 'd': 1,
+    if (reload) 'r': 1,
+  };
 
   factory InputState.fromJson(Map<String, dynamic> j) => InputState(
-        moveX: _d(j['mx']),
-        moveY: _d(j['my']),
-        aim: _d(j['a']),
-        fire: (j['f'] as num?)?.toInt() == 1,
-        dash: (j['d'] as num?)?.toInt() == 1,
-        reload: (j['r'] as num?)?.toInt() == 1,
-      );
+    moveX: _d(j['mx']),
+    moveY: _d(j['my']),
+    aim: _d(j['a']),
+    fire: (j['f'] as num?)?.toInt() == 1,
+    dash: (j['d'] as num?)?.toInt() == 1,
+    reload: (j['r'] as num?)?.toInt() == 1,
+  );
 }
 
 double _d(Object? v, [double fallback = 0]) =>
     v is num ? v.toDouble() : fallback;
 
-int _i(Object? v, [int fallback = 0]) =>
-    v is num ? v.toInt() : fallback;
+int _i(Object? v, [int fallback = 0]) => v is num ? v.toInt() : fallback;
 
 class PlayerSnapshot {
   const PlayerSnapshot({
@@ -88,40 +87,40 @@ class PlayerSnapshot {
   final double reloadRemaining;
 
   List<Object?> toList() => <Object?>[
-        id,
-        (x * 10).round(),
-        (y * 10).round(),
-        (aim * 100).round(),
-        hp.round(),
-        shield.round(),
-        alive ? 1 : 0,
-        weapon,
-        ammo,
-        (speedTime * 10).round(),
-        (ghostTime * 10).round(),
-        (dashCooldown * 100).round(),
-        reloading ? 1 : 0,
-        team,
-        (reloadRemaining * 100).round(),
-      ];
+    id,
+    (x * 10).round(),
+    (y * 10).round(),
+    (aim * 100).round(),
+    hp.round(),
+    shield.round(),
+    alive ? 1 : 0,
+    weapon,
+    ammo,
+    (speedTime * 10).round(),
+    (ghostTime * 10).round(),
+    (dashCooldown * 100).round(),
+    reloading ? 1 : 0,
+    team,
+    (reloadRemaining * 100).round(),
+  ];
 
   factory PlayerSnapshot.fromList(List<Object?> l) => PlayerSnapshot(
-        id: _i(l[0]),
-        x: _i(l[1]) / 10.0,
-        y: _i(l[2]) / 10.0,
-        aim: _i(l[3]) / 100.0,
-        hp: _d(l[4]),
-        shield: _d(l[5]),
-        alive: _i(l[6]) == 1,
-        weapon: _i(l[7]),
-        ammo: _i(l[8]),
-        speedTime: _i(l[9]) / 10.0,
-        ghostTime: _i(l[10]) / 10.0,
-        dashCooldown: _i(l[11]) / 100.0,
-        reloading: _i(l[12]) == 1,
-        team: l.length > 13 ? _i(l[13], -1) : -1,
-        reloadRemaining: l.length > 14 ? _i(l[14]) / 100.0 : 0,
-      );
+    id: _i(l[0]),
+    x: _i(l[1]) / 10.0,
+    y: _i(l[2]) / 10.0,
+    aim: _i(l[3]) / 100.0,
+    hp: _d(l[4]),
+    shield: _d(l[5]),
+    alive: _i(l[6]) == 1,
+    weapon: _i(l[7]),
+    ammo: _i(l[8]),
+    speedTime: _i(l[9]) / 10.0,
+    ghostTime: _i(l[10]) / 10.0,
+    dashCooldown: _i(l[11]) / 100.0,
+    reloading: _i(l[12]) == 1,
+    team: l.length > 13 ? _i(l[13], -1) : -1,
+    reloadRemaining: l.length > 14 ? _i(l[14]) / 100.0 : 0,
+  );
 }
 
 class BulletSnapshot {
@@ -132,16 +131,21 @@ class BulletSnapshot {
   final double vy;
   final int weapon;
 
-  List<Object?> toList() =>
-      <Object?>[(x * 10).round(), (y * 10).round(), vx.round(), vy.round(), weapon];
+  List<Object?> toList() => <Object?>[
+    (x * 10).round(),
+    (y * 10).round(),
+    vx.round(),
+    vy.round(),
+    weapon,
+  ];
 
   factory BulletSnapshot.fromList(List<Object?> l) => BulletSnapshot(
-        _i(l[0]) / 10.0,
-        _i(l[1]) / 10.0,
-        _d(l[2]),
-        _d(l[3]),
-        _i(l[4]),
-      );
+    _i(l[0]) / 10.0,
+    _i(l[1]) / 10.0,
+    _d(l[2]),
+    _d(l[3]),
+    _i(l[4]),
+  );
 }
 
 class PickupSnapshot {
@@ -151,15 +155,15 @@ class PickupSnapshot {
   final double y;
   final int type;
 
-  List<Object?> toList() =>
-      <Object?>[id, (x * 10).round(), (y * 10).round(), type];
+  List<Object?> toList() => <Object?>[
+    id,
+    (x * 10).round(),
+    (y * 10).round(),
+    type,
+  ];
 
-  factory PickupSnapshot.fromList(List<Object?> l) => PickupSnapshot(
-        _i(l[0]),
-        _i(l[1]) / 10.0,
-        _i(l[2]) / 10.0,
-        _i(l[3]),
-      );
+  factory PickupSnapshot.fromList(List<Object?> l) =>
+      PickupSnapshot(_i(l[0]), _i(l[1]) / 10.0, _i(l[2]) / 10.0, _i(l[3]));
 }
 
 class ZoneSnapshot {
@@ -176,31 +180,39 @@ class ZoneSnapshot {
 
   List<Object?> toList() => <Object?>[x.round(), y.round(), radius.round()];
 
-  factory ZoneSnapshot.fromList(List<Object?> l) => ZoneSnapshot(
-        _d(l[0]),
-        _d(l[1]),
-        _d(l[2]),
-      );
+  factory ZoneSnapshot.fromList(List<Object?> l) =>
+      ZoneSnapshot(_d(l[0]), _d(l[1]), _d(l[2]));
 }
 
 class ScoreRow {
-  const ScoreRow(this.id, this.kills, this.alive, this.damage, [this.team = -1]);
+  const ScoreRow(
+    this.id,
+    this.kills,
+    this.alive,
+    this.damage, [
+    this.team = -1,
+  ]);
   final int id;
   final int kills;
   final bool alive;
   final double damage;
   final int team;
 
-  List<Object?> toList() =>
-      <Object?>[id, kills, alive ? 1 : 0, damage.round(), team];
+  List<Object?> toList() => <Object?>[
+    id,
+    kills,
+    alive ? 1 : 0,
+    damage.round(),
+    team,
+  ];
 
   factory ScoreRow.fromList(List<Object?> l) => ScoreRow(
-        _i(l[0]),
-        _i(l[1]),
-        _i(l[2]) == 1,
-        _d(l[3]),
-        l.length > 4 ? _i(l[4], -1) : -1,
-      );
+    _i(l[0]),
+    _i(l[1]),
+    _i(l[2]) == 1,
+    _d(l[3]),
+    l.length > 4 ? _i(l[4], -1) : -1,
+  );
 }
 
 class ResultRow {
@@ -221,22 +233,22 @@ class ResultRow {
   final int team;
 
   List<Object?> toList() => <Object?>[
-        id,
-        placement,
-        kills,
-        damage.round(),
-        (survived * 10).round(),
-        team,
-      ];
+    id,
+    placement,
+    kills,
+    damage.round(),
+    (survived * 10).round(),
+    team,
+  ];
 
   factory ResultRow.fromList(List<Object?> l) => ResultRow(
-        id: _i(l[0]),
-        placement: _i(l[1]),
-        kills: _i(l[2]),
-        damage: _d(l[3]),
-        survived: _i(l[4]) / 10.0,
-        team: l.length > 5 ? _i(l[5], -1) : -1,
-      );
+    id: _i(l[0]),
+    placement: _i(l[1]),
+    kills: _i(l[2]),
+    damage: _d(l[3]),
+    survived: _i(l[4]) / 10.0,
+    team: l.length > 5 ? _i(l[5], -1) : -1,
+  );
 }
 
 class RadarPing {
@@ -277,6 +289,7 @@ class Snapshot {
     this.spectateTarget = 0,
     this.respawn = false,
     this.respawnRemaining = 0,
+    this.allyVision = true,
   });
 
   final int tick;
@@ -304,6 +317,7 @@ class Snapshot {
   final int spectateTarget;
   final bool respawn;
   final double respawnRemaining;
+  final bool allyVision;
 
   PlayerSnapshot? playerById(int id) {
     for (final p in players) {
@@ -331,34 +345,35 @@ class Snapshot {
   }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        't': 's',
-        'k': tick,
-        'ph': phase.index,
-        'pt': double.parse(phaseTime.toStringAsFixed(2)),
-        'tm': double.parse(matchTime.toStringAsFixed(1)),
-        'al': alivePlayers,
-        'tot': totalPlayers,
-        'z': zone.toList(),
-        'zs': zoneShrinking ? 1 : 0,
-        'zst': zoneStage,
-        'zn': double.parse(nextZoneEventIn.toStringAsFixed(1)),
-        'p': players.map((p) => p.toList()).toList(),
-        'b': bullets.map((b) => b.toList()).toList(),
-        'u': pickups.map((p) => p.toList()).toList(),
-        'sc': scoreboard.map((s) => s.toList()).toList(),
-        'nm': names.entries.map((e) => <Object?>[e.key, e.value]).toList(),
-        'e': events.map((e) => e.toList()).toList(),
-        if (results.isNotEmpty) 'res': results.map((r) => r.toList()).toList(),
-        if (radar != null) 'rd': radar!.toList(),
-        if (teams) 'tms': 1,
-        if (winTeam >= 0) 'wt': winTeam,
-        'dv': deathVision,
-        if (fogView) 'fog': 1,
-        if (spectateTarget > 0) 'sp': spectateTarget,
-        if (respawn) 'rs': 1,
-        if (respawnRemaining > 0)
-          'rt': double.parse(respawnRemaining.toStringAsFixed(1)),
-      };
+    't': 's',
+    'k': tick,
+    'ph': phase.index,
+    'pt': double.parse(phaseTime.toStringAsFixed(2)),
+    'tm': double.parse(matchTime.toStringAsFixed(1)),
+    'al': alivePlayers,
+    'tot': totalPlayers,
+    'z': zone.toList(),
+    'zs': zoneShrinking ? 1 : 0,
+    'zst': zoneStage,
+    'zn': double.parse(nextZoneEventIn.toStringAsFixed(1)),
+    'p': players.map((p) => p.toList()).toList(),
+    'b': bullets.map((b) => b.toList()).toList(),
+    'u': pickups.map((p) => p.toList()).toList(),
+    'sc': scoreboard.map((s) => s.toList()).toList(),
+    'nm': names.entries.map((e) => <Object?>[e.key, e.value]).toList(),
+    'e': events.map((e) => e.toList()).toList(),
+    if (results.isNotEmpty) 'res': results.map((r) => r.toList()).toList(),
+    if (radar != null) 'rd': radar!.toList(),
+    if (teams) 'tms': 1,
+    if (winTeam >= 0) 'wt': winTeam,
+    'dv': deathVision,
+    if (fogView) 'fog': 1,
+    if (spectateTarget > 0) 'sp': spectateTarget,
+    if (respawn) 'rs': 1,
+    if (respawnRemaining > 0)
+      'rt': double.parse(respawnRemaining.toStringAsFixed(1)),
+    if (allyVision) 'av': 1,
+  };
 
   factory Snapshot.fromJson(Map<String, dynamic> j) {
     final names = <int, String>{};
@@ -416,6 +431,7 @@ class Snapshot {
       spectateTarget: _i(j['sp']),
       respawn: _i(j['rs']) == 1,
       respawnRemaining: _d(j['rt']),
+      allyVision: _i(j['av'], 1) == 1,
     );
   }
 
@@ -477,8 +493,13 @@ class DamageEvent extends GameEvent {
   final double angle;
 
   @override
-  List<Object?> toList() =>
-      <Object?>['d', victimId, attackerId, amount.round(), angle];
+  List<Object?> toList() => <Object?>[
+    'd',
+    victimId,
+    attackerId,
+    amount.round(),
+    angle,
+  ];
 }
 
 class PickupEvent extends GameEvent {
@@ -536,11 +557,11 @@ class LobbyPlayer {
   List<Object?> toList() => <Object?>[id, name, isBot ? 1 : 0, team];
 
   factory LobbyPlayer.fromList(List<Object?> l) => LobbyPlayer(
-        _i(l[0]),
-        '${l[1]}',
-        _i(l[2]) == 1,
-        l.length > 3 ? _i(l[3], -1) : -1,
-      );
+    _i(l[0]),
+    '${l[1]}',
+    _i(l[2]) == 1,
+    l.length > 3 ? _i(l[3], -1) : -1,
+  );
 }
 
 class ChatLine {
@@ -575,6 +596,10 @@ class LobbyState {
     this.loot = 1,
     this.friendlyFire = false,
     this.respawn = false,
+    this.respawnDelay = kDefaultRespawnDelay,
+    this.allyVision = true,
+    this.seed = 0,
+    this.mapGeneration = 0,
   });
 
   final String roomName;
@@ -595,6 +620,10 @@ class LobbyState {
   final int loot;
   final bool friendlyFire;
   final bool respawn;
+  final int respawnDelay;
+  final bool allyVision;
+  final int seed;
+  final int mapGeneration;
 
   factory LobbyState.fromJson(Map<String, dynamic> j) {
     final players = <LobbyPlayer>[];
@@ -630,6 +659,13 @@ class LobbyState {
       loot: _i(j['loot'], 1),
       friendlyFire: _i(j['ff']) == 1,
       respawn: _i(j['rs']) == 1,
+      respawnDelay: _i(
+        j['rsec'],
+        kDefaultRespawnDelay,
+      ).clamp(kMinRespawnDelay, kMaxRespawnDelay),
+      allyVision: _i(j['av'], 1) == 1,
+      seed: _i(j['seed']),
+      mapGeneration: _i(j['mg']).clamp(0, kMapGenerationCount - 1),
     );
   }
 }

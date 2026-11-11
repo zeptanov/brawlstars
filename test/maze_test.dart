@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:maze_royale/game/constants.dart';
 import 'package:maze_royale/game/maze.dart';
@@ -6,40 +7,92 @@ import 'package:maze_royale/game/maze.dart';
 void main() {
   group('Maze', () {
     test('генерируется для всех размеров и полностью связная', () {
-      for (final size in kMapSizes) {
-        for (var seed = 1; seed <= 5; seed++) {
-          final maze = Maze.generate(size: size, seed: seed * 7919);
-          final floors = <int>[];
-          for (var y = 0; y < size; y++) {
-            for (var x = 0; x < size; x++) {
-              if (!maze.wallAt(x, y)) floors.add(y * size + x);
+      for (final generation in List<int>.generate(
+        kMapGenerationCount,
+        (i) => i,
+      )) {
+        for (final size in kMapSizes) {
+          for (var seed = 1; seed <= 5; seed++) {
+            final maze = Maze.generate(
+              size: size,
+              seed: seed * 7919,
+              generation: generation,
+            );
+            final floors = <int>[];
+            for (var y = 0; y < size; y++) {
+              for (var x = 0; x < size; x++) {
+                if (!maze.wallAt(x, y)) floors.add(y * size + x);
+              }
             }
-          }
-          expect(floors.length, greaterThan(size * size ~/ 3),
-              reason: 'size=$size seed=$seed');
+            expect(
+              floors.length,
+              greaterThan(size * size ~/ 3),
+              reason: 'size=$size seed=$seed',
+            );
 
-          final start = floors.first;
-          final seen = <int>{start};
-          final queue = <int>[start];
-          while (queue.isNotEmpty) {
-            final cur = queue.removeLast();
-            final cx = cur % size;
-            final cy = cur ~/ size;
-            for (final d in const <List<int>>[
-              <int>[1, 0],
-              <int>[-1, 0],
-              <int>[0, 1],
-              <int>[0, -1],
-            ]) {
-              final nx = cx + d[0];
-              final ny = cy + d[1];
-              if (maze.wallAt(nx, ny)) continue;
-              final idx = ny * size + nx;
-              if (seen.add(idx)) queue.add(idx);
+            final start = floors.first;
+            final seen = <int>{start};
+            final queue = <int>[start];
+            while (queue.isNotEmpty) {
+              final cur = queue.removeLast();
+              final cx = cur % size;
+              final cy = cur ~/ size;
+              for (final d in const <List<int>>[
+                <int>[1, 0],
+                <int>[-1, 0],
+                <int>[0, 1],
+                <int>[0, -1],
+              ]) {
+                final nx = cx + d[0];
+                final ny = cy + d[1];
+                if (maze.wallAt(nx, ny)) continue;
+                final idx = ny * size + nx;
+                if (seen.add(idx)) queue.add(idx);
+              }
+            }
+            expect(
+              seen.length,
+              floors.length,
+              reason:
+                  'несвязные клетки: style=$generation size=$size seed=$seed',
+            );
+          }
+        }
+      }
+    });
+
+    test('разные генерации дают разные, но повторяемые карты', () {
+      final layouts = <Maze>[
+        for (var generation = 0; generation < kMapGenerationCount; generation++)
+          Maze.generate(size: 61, seed: 4141, generation: generation),
+      ];
+      final repeated = <Maze>[
+        for (var generation = 0; generation < kMapGenerationCount; generation++)
+          Maze.generate(size: 61, seed: 4141, generation: generation),
+      ];
+
+      for (var generation = 0; generation < layouts.length; generation++) {
+        for (var y = 0; y < 61; y++) {
+          for (var x = 0; x < 61; x++) {
+            expect(
+              layouts[generation].wallAt(x, y),
+              repeated[generation].wallAt(x, y),
+            );
+          }
+        }
+      }
+
+      for (var a = 0; a < layouts.length; a++) {
+        for (var b = a + 1; b < layouts.length; b++) {
+          var differences = 0;
+          for (var y = 0; y < 61; y++) {
+            for (var x = 0; x < 61; x++) {
+              if (layouts[a].wallAt(x, y) != layouts[b].wallAt(x, y)) {
+                differences++;
+              }
             }
           }
-          expect(seen.length, floors.length,
-              reason: 'несвязные клетки: size=$size seed=$seed');
+          expect(differences, greaterThan(40));
         }
       }
     });

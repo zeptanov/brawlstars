@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
+import '../app/game_audio.dart';
 import '../app/room.dart';
 import '../app/settings.dart';
 import '../app/theme.dart';
@@ -19,6 +20,7 @@ import 'arena_painter.dart';
 import 'controls.dart';
 import 'game_view_model.dart';
 import 'hud.dart';
+import 'in_game_settings_panel.dart';
 import 'widgets.dart';
 
 class GameScreen extends StatefulWidget {
@@ -38,6 +40,7 @@ class _GameScreenState extends State<GameScreen>
     with SingleTickerProviderStateMixin {
   final GameViewModel _vm = GameViewModel();
   final AppSettings _settings = AppSettings.instance;
+  final GameAudio _audio = GameAudio.instance;
   final FocusNode _focusNode = FocusNode(debugLabel: 'maze-royale-game');
   final ValueNotifier<Offset> _crosshair = ValueNotifier<Offset>(Offset.zero);
   final Set<LogicalKeyboardKey> _pressed = <LogicalKeyboardKey>{};
@@ -58,6 +61,7 @@ class _GameScreenState extends State<GameScreen>
   int _fps = 60;
 
   double _aim = 0;
+  double _nextShotSoundAt = 0;
   Offset _leftStick = Offset.zero;
   Offset _rightStick = Offset.zero;
   Offset _pointer = Offset.zero;
@@ -69,6 +73,8 @@ class _GameScreenState extends State<GameScreen>
   bool _spaceFire = false;
   bool _dashPending = false;
   bool _reloadPending = false;
+  bool _reloadSoundStateKnown = false;
+  bool _wasReloading = false;
   int? _directTouchPointer;
 
   bool _scoreboard = false;
@@ -79,6 +85,7 @@ class _GameScreenState extends State<GameScreen>
   bool _recordedResult = false;
   int _sentSpectate = 0;
   bool _awaitingLobby = false;
+  bool _exitPromptOpen = false;
 
   double _hitAt = -10;
   double _killAt = -10;
@@ -91,6 +98,9 @@ class _GameScreenState extends State<GameScreen>
   @override
   void initState() {
     super.initState();
+    _audio
+      ..bind(_settings)
+      ..startMatchMusic();
     _touchControls = _settings.isTouchDefault;
     _ticker = createTicker(_onTick)..start();
     _eventSub = _client.events.stream.listen(_onGameEvent);
@@ -116,6 +126,25 @@ class _GameScreenState extends State<GameScreen>
     });
   }
 
+  void _openSettings() {
+    unawaited(_audio.playUi());
+    showNeonSheet(
+      context: context,
+      title: 'Настройки игры',
+      maxWidth: 560,
+      child: InGameSettingsPanel(
+        settings: _settings,
+        onInputModeChanged: (mode) {
+          _settings.setInputMode(mode);
+          final touchControls = _settings.isTouchDefault;
+          if (_touchControls != touchControls && mounted) {
+            setState(() => _touchControls = touchControls);
+          }
+        },
+      ),
+    );
+  }
+
   @override
   void dispose() {
     final events = _eventSub;
@@ -126,6 +155,7 @@ class _GameScreenState extends State<GameScreen>
     _client.lobby.removeListener(_onClientChanged);
     _client.latency.removeListener(_onClientChanged);
     _ticker.dispose();
+    unawaited(_audio.stopMatchMusic());
     _focusNode.dispose();
     _crosshair.dispose();
     if (!_leaving) unawaited(widget.room.close());
@@ -166,6 +196,7 @@ class _GameScreenState extends State<GameScreen>
 
     final snapshot = client.snapshot.value;
     _vm.update(snapshot, dt, touch: _touchControls);
+    _playReloadSoundOnStart();
     if (snapshot != null) _checkTransitions(snapshot, client);
     _syncSpectate(client);
     _recordResult(client);
@@ -178,6 +209,20 @@ class _GameScreenState extends State<GameScreen>
       _hudAccum = 0;
       if (mounted) setState(() {});
     }
+  }
+
+  void _playReloadSoundOnStart() {
+    final actor = _vm.myActor;
+    if (actor == null) {
+      _reloadSoundStateKnown = false;
+      return;
+    }
+
+    if (_reloadSoundStateKnown && !_wasReloading && actor.reloading) {
+      unawaited(_audio.playReload());
+    }
+    _wasReloading = actor.reloading;
+    _reloadSoundStateKnown = true;
   }
 
   void _updateAim(GameClient client) {
@@ -253,6 +298,16 @@ class _GameScreenState extends State<GameScreen>
         !_vm.spectator &&
         !_menuOpen &&
         (_mouseFire || _spaceFire || _touchFire || _touchHoldFire);
+    final actor = _vm.myActor;
+    if (firing &&
+        actor != null &&
+        actor.ammo > 0 &&
+        !actor.reloading &&
+        _vm.time >= _nextShotSoundAt) {
+      unawaited(_audio.playWeapon(actor.weapon));
+      _nextShotSoundAt = _vm.time + weaponByIndex(actor.weapon).fireInterval;
+    }
+    if (_dashPending) unawaited(_audio.playDash());
     client.sendInput(
       InputState(
         moveX: move.dx,
@@ -417,6 +472,7 @@ class _GameScreenState extends State<GameScreen>
         unawaited(HapticFeedback.selectionClick());
       case RespawnEvent e:
         if (e.playerId == _client.id) {
+          unawaited(_audio.playRespawn());
           _addBanner(
             HudBanner(
               text: 'ВЫ ВОЗРОДИЛИСЬ',
@@ -428,6 +484,19 @@ class _GameScreenState extends State<GameScreen>
             ),
           );
           unawaited(HapticFeedback.mediumImpact());
+        } else if (_isAlly(e.playerId)) {
+          unawaited(_audio.playRespawn());
+          _addBanner(
+            HudBanner(
+              text: 'СОЮЗНИК ВЕРНУЛСЯ',
+              detail: _client.snapshot.value?.nameOf(e.playerId),
+              color: Palette.accent,
+              icon: Icons.restart_alt_rounded,
+              createdAt: _vm.time,
+              duration: 2.8,
+            ),
+          );
+          unawaited(HapticFeedback.selectionClick());
         }
       case JoinEvent():
       case LeaveEvent():
@@ -441,6 +510,25 @@ class _GameScreenState extends State<GameScreen>
         ? 'Зона'
         : (snap?.nameOf(event.killerId) ?? 'Игрок ${event.killerId}');
     final victim = snap?.nameOf(event.victimId) ?? 'Игрок ${event.victimId}';
+    final respawnDelay =
+        _client.lobby.value?.respawnDelay ?? kDefaultRespawnDelay;
+    if (event.victimId == _client.id || _isAlly(event.victimId)) {
+      unawaited(_audio.playExplosion());
+    }
+    if (event.victimId != _client.id && _isAlly(event.victimId)) {
+      _addBanner(
+        HudBanner(
+          text: 'НАПАРНИК УСТРАНЁН',
+          detail: snap?.respawn == true
+              ? 'Возвращение через $respawnDelay сек., если союзник жив'
+              : victim,
+          color: Palette.danger,
+          icon: Icons.person_off_outlined,
+          createdAt: _vm.time,
+          duration: 3.2,
+        ),
+      );
+    }
     final victimActor = _vm.actors[event.victimId];
     if (victimActor != null) {
       _vm.addBurst(
@@ -473,6 +561,7 @@ class _GameScreenState extends State<GameScreen>
     });
 
     if (event.killerId == _client.id) {
+      unawaited(_audio.playKill());
       _addBanner(
         HudBanner(
           text: 'УСТРАНЁН $victim',
@@ -503,14 +592,25 @@ class _GameScreenState extends State<GameScreen>
     }
   }
 
+  bool _isAlly(int playerId) {
+    final snapshot = _client.snapshot.value;
+    if (snapshot == null || !snapshot.teams || playerId == _client.id) {
+      return false;
+    }
+    final myTeam = snapshot.teamOf(_client.id);
+    return myTeam >= 0 && snapshot.teamOf(playerId) == myTeam;
+  }
+
   void _onDamage(DamageEvent event) {
     final me = _vm.myActor;
     if (event.attackerId == _client.id && event.victimId != _client.id) {
+      unawaited(_audio.playHit());
       setState(() => _hitAt = _vm.time);
       return;
     }
     if (event.victimId != _client.id || me == null) return;
 
+    unawaited(_audio.playDamage());
     final attacker = _vm.actors[event.attackerId];
     final angle = attacker != null
         ? math.atan2(attacker.pos.dy - me.pos.dy, attacker.pos.dx - me.pos.dx)
@@ -529,6 +629,7 @@ class _GameScreenState extends State<GameScreen>
 
   void _onPickup(PickupEvent event) {
     if (event.playerId != _client.id) return;
+    unawaited(_audio.playPickup());
     final def = pickupByIndex(event.type);
     final color = Color(def.color);
     final me = _vm.myActor;
@@ -815,6 +916,7 @@ class _GameScreenState extends State<GameScreen>
 
   void _openMenu() {
     if (_leaving || _resultsVisible) return;
+    unawaited(_audio.playUi());
     setState(() {
       _menuOpen = true;
       _mouseFire = false;
@@ -832,6 +934,7 @@ class _GameScreenState extends State<GameScreen>
   }
 
   void _resume() {
+    unawaited(_audio.playUi());
     if (widget.room.isPractice && _client.paused) {
       _client.togglePause();
     }
@@ -878,13 +981,54 @@ class _GameScreenState extends State<GameScreen>
   }
 
   Future<void> _exitToMenu() async {
-    if (_leaving) return;
+    if (_leaving || _exitPromptOpen) return;
+    unawaited(_audio.playUi());
+    _exitPromptOpen = true;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Palette.surfaceAlt,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: Palette.line),
+        ),
+        title: const Text('Выйти из игры?'),
+        content: Text(
+          widget.room.isPractice
+              ? 'Тренировка завершится, и вы вернётесь в главное меню.'
+              : 'Вы покинете комнату. Для друзей она закроется, если вы хост.',
+          style: const TextStyle(color: Palette.muted),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () {
+              unawaited(_audio.playUi());
+              Navigator.of(context).pop(false);
+            },
+            child: const Text('Продолжить игру'),
+          ),
+          TextButton(
+            onPressed: () {
+              unawaited(_audio.playUi());
+              Navigator.of(context).pop(true);
+            },
+            child: const Text('Выйти', style: TextStyle(color: Palette.danger)),
+          ),
+        ],
+      ),
+    );
+    _exitPromptOpen = false;
+    if (confirmed != true || !mounted || _leaving) return;
     setState(() => _leaving = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
     try {
       await widget.room.close();
     } catch (_) {
       // Комната могла быть уже закрыта.
     }
+    if (!mounted) return;
+    await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
@@ -1000,13 +1144,6 @@ class _GameScreenState extends State<GameScreen>
                         enabled: !_leaving,
                       ),
                     ),
-                  if (_vm.spectator && !results && !_menuOpen)
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: _touchControls ? 236 : 104,
-                      child: Center(child: _spectatorBar()),
-                    ),
                   if (snapshot != null &&
                       snapshot.phase == MatchPhase.countdown &&
                       !_menuOpen &&
@@ -1028,6 +1165,7 @@ class _GameScreenState extends State<GameScreen>
                       touchControls: _touchControls,
                       paused: client.paused,
                       onResume: _resume,
+                      onSettings: _openSettings,
                       onToggleControls: _toggleControls,
                       onExit: () => unawaited(_exitToMenu()),
                       lobbyMode: widget.fromLobby,
@@ -1035,6 +1173,16 @@ class _GameScreenState extends State<GameScreen>
                       awaitingLobby: _awaitingLobby,
                       onLobby: _requestLobby,
                       compact: compact,
+                    ),
+                  if (snapshot != null &&
+                      !results &&
+                      (_vm.spectator ||
+                          (snapshot.respawn && snapshot.respawnRemaining > 0)))
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: _touchControls ? 236 : 104,
+                      child: Center(child: _gameStatusBar(snapshot)),
                     ),
                   if (results)
                     ResultsOverlay(
@@ -1078,14 +1226,13 @@ class _GameScreenState extends State<GameScreen>
     return (1 - actor.reloadRemaining / total).clamp(0.0, 1.0);
   }
 
-  Widget _spectatorBar() {
+  Widget _gameStatusBar(Snapshot snapshot) {
     final focus = _vm.focusActor;
-    final snapshot = _vm.snapshot;
-    final respawnRemaining = snapshot?.respawnRemaining ?? 0;
+    final respawnRemaining = snapshot.respawnRemaining;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        if (snapshot?.respawn == true && respawnRemaining > 0) ...<Widget>[
+        if (snapshot.respawn && respawnRemaining > 0) ...<Widget>[
           Container(
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1116,11 +1263,12 @@ class _GameScreenState extends State<GameScreen>
             ),
           ),
         ],
-        _SpectatorBar(
-          name: focus?.name,
-          onPrev: () => _cycleSpectate(-1),
-          onNext: () => _cycleSpectate(1),
-        ),
+        if (_vm.spectator)
+          _SpectatorBar(
+            name: focus?.name,
+            onPrev: () => _cycleSpectate(-1),
+            onNext: () => _cycleSpectate(1),
+          ),
       ],
     );
   }
@@ -1426,6 +1574,7 @@ class _GameMenu extends StatelessWidget {
     required this.touchControls,
     required this.paused,
     required this.onResume,
+    required this.onSettings,
     required this.onToggleControls,
     required this.onExit,
     required this.lobbyMode,
@@ -1439,6 +1588,7 @@ class _GameMenu extends StatelessWidget {
   final bool touchControls;
   final bool paused;
   final VoidCallback onResume;
+  final VoidCallback onSettings;
   final VoidCallback onToggleControls;
   final VoidCallback onExit;
   final bool lobbyMode;
@@ -1515,6 +1665,14 @@ class _GameMenu extends StatelessWidget {
                           : Icons.mouse_rounded,
                       height: 50,
                       onPressed: onToggleControls,
+                    ),
+                    const SizedBox(height: 9),
+                    NeonButton(
+                      label: 'Настройки игры',
+                      subtitle: 'Звук, управление и графика',
+                      icon: Icons.settings_outlined,
+                      height: 50,
+                      onPressed: onSettings,
                     ),
                     const SizedBox(height: 9),
                     if (lobbyMode) ...<Widget>[

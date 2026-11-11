@@ -24,16 +24,26 @@ class AppSettings extends ChangeNotifier {
   int quality = 1; // 0 низко, 1 средне, 2 высоко
   bool showFps = false;
   bool screenShake = true;
+  bool soundEnabled = false;
+  double musicVolume = 0.45;
+  double weaponVolume = 0.65;
+  double explosionVolume = 0.7;
+  double pickupVolume = 0.6;
+  double uiVolume = 0.5;
 
   int defaultBots = 3;
+  int lastLobbyBotCount = 0;
   int defaultMapSize = kDefaultMapSize;
+  int defaultMapGeneration = 0;
   int defaultTempo = 1;
   int defaultSkill = 1;
   bool defaultTeams = false;
+  bool defaultAllyVision = true;
   int defaultDeathVision = 1;
   int defaultLoot = 1;
   bool defaultFriendlyFire = false;
   bool defaultRespawn = false;
+  int defaultRespawnDelay = kDefaultRespawnDelay;
 
   int matchesPlayed = 0;
   int wins = 0;
@@ -111,13 +121,109 @@ class AppSettings extends ChangeNotifier {
     _changed();
   }
 
+  void setSoundEnabled(bool value) {
+    soundEnabled = value;
+    _changed();
+  }
+
+  void setMusicVolume(double value) {
+    musicVolume = value.clamp(0.0, 1.0).toDouble();
+    _changed();
+  }
+
+  void setWeaponVolume(double value) {
+    weaponVolume = value.clamp(0.0, 1.0).toDouble();
+    _changed();
+  }
+
+  void setExplosionVolume(double value) {
+    explosionVolume = value.clamp(0.0, 1.0).toDouble();
+    _changed();
+  }
+
+  void setPickupVolume(double value) {
+    pickupVolume = value.clamp(0.0, 1.0).toDouble();
+    _changed();
+  }
+
+  void setUiVolume(double value) {
+    uiVolume = value.clamp(0.0, 1.0).toDouble();
+    _changed();
+  }
+
   void setDefaultBots(int value) {
     defaultBots = value.clamp(1, 7);
     _changed();
   }
 
+  void setDefaultAllyVision(bool value) {
+    defaultAllyVision = value;
+    _changed();
+  }
+
+  void saveLastLobbySettings({
+    required int botCount,
+    required int mapSize,
+    required int mapGeneration,
+    required int tempo,
+    required int skill,
+    required bool teams,
+    required int deathVision,
+    required int loot,
+    required bool friendlyFire,
+    required bool respawn,
+    required int respawnDelay,
+    required bool allyVision,
+  }) {
+    final nextBotCount = botCount.clamp(0, 7);
+    final nextMapSize = kMapSizes.contains(mapSize) ? mapSize : defaultMapSize;
+    final nextMapGeneration = mapGeneration.clamp(0, kMapGenerationCount - 1);
+    final nextTempo = tempo.clamp(0, 2);
+    final nextSkill = skill.clamp(0, 2);
+    final nextDeathVision = deathVision.clamp(0, 1);
+    final nextLoot = loot.clamp(0, 2);
+    final nextRespawnDelay = respawnDelay.clamp(
+      kMinRespawnDelay,
+      kMaxRespawnDelay,
+    );
+    if (lastLobbyBotCount == nextBotCount &&
+        defaultMapSize == nextMapSize &&
+        defaultMapGeneration == nextMapGeneration &&
+        defaultTempo == nextTempo &&
+        defaultSkill == nextSkill &&
+        defaultTeams == teams &&
+        defaultDeathVision == nextDeathVision &&
+        defaultLoot == nextLoot &&
+        defaultFriendlyFire == friendlyFire &&
+        defaultRespawn == respawn &&
+        defaultRespawnDelay == nextRespawnDelay &&
+        defaultAllyVision == allyVision) {
+      return;
+    }
+
+    lastLobbyBotCount = nextBotCount;
+    defaultMapSize = nextMapSize;
+    defaultMapGeneration = nextMapGeneration;
+    defaultTempo = nextTempo;
+    defaultSkill = nextSkill;
+    defaultTeams = teams;
+    defaultDeathVision = nextDeathVision;
+    defaultLoot = nextLoot;
+    defaultFriendlyFire = friendlyFire;
+    defaultRespawn = respawn;
+    defaultRespawnDelay = nextRespawnDelay;
+    defaultAllyVision = allyVision;
+    _changed();
+  }
+
   void setDefaultMapSize(int value) {
+    if (!kMapSizes.contains(value)) return;
     defaultMapSize = value;
+    _changed();
+  }
+
+  void setDefaultMapGeneration(int value) {
+    defaultMapGeneration = value.clamp(0, kMapGenerationCount - 1);
     _changed();
   }
 
@@ -156,6 +262,11 @@ class AppSettings extends ChangeNotifier {
     _changed();
   }
 
+  void setDefaultRespawnDelay(int value) {
+    defaultRespawnDelay = value.clamp(kMinRespawnDelay, kMaxRespawnDelay);
+    _changed();
+  }
+
   void recordMatch({
     required int placement,
     required int kills,
@@ -188,15 +299,25 @@ class AppSettings extends ChangeNotifier {
     'quality': quality,
     'showFps': showFps,
     'screenShake': screenShake,
+    'soundEnabled': soundEnabled,
+    'musicVolume': musicVolume,
+    'weaponVolume': weaponVolume,
+    'explosionVolume': explosionVolume,
+    'pickupVolume': pickupVolume,
+    'uiVolume': uiVolume,
     'defaultBots': defaultBots,
+    'lastLobbyBotCount': lastLobbyBotCount,
     'defaultMapSize': defaultMapSize,
+    'defaultMapGeneration': defaultMapGeneration,
     'defaultTempo': defaultTempo,
     'defaultSkill': defaultSkill,
     'defaultTeams': defaultTeams,
+    'defaultAllyVision': defaultAllyVision,
     'defaultDeathVision': defaultDeathVision,
     'defaultLoot': defaultLoot,
     'defaultFriendlyFire': defaultFriendlyFire,
     'defaultRespawn': defaultRespawn,
+    'defaultRespawnDelay': defaultRespawnDelay,
   };
 
   Map<String, Object?> _statisticsJson() => <String, Object?>{
@@ -216,14 +337,33 @@ class AppSettings extends ChangeNotifier {
     quality = _intInRange(saved['quality'], 0, 2, quality);
     showFps = _boolOr(saved['showFps'], showFps);
     screenShake = _boolOr(saved['screenShake'], screenShake);
+    soundEnabled = _boolOr(saved['soundEnabled'], soundEnabled);
+    musicVolume = _doubleInRange(saved['musicVolume'], musicVolume);
+    weaponVolume = _doubleInRange(saved['weaponVolume'], weaponVolume);
+    explosionVolume = _doubleInRange(saved['explosionVolume'], explosionVolume);
+    pickupVolume = _doubleInRange(saved['pickupVolume'], pickupVolume);
+    uiVolume = _doubleInRange(saved['uiVolume'], uiVolume);
     defaultBots = _intInRange(saved['defaultBots'], 1, 7, defaultBots);
+    lastLobbyBotCount = _intInRange(
+      saved['lastLobbyBotCount'],
+      0,
+      7,
+      lastLobbyBotCount,
+    );
     final mapSize = saved['defaultMapSize'];
     if (mapSize is int && kMapSizes.contains(mapSize)) {
       defaultMapSize = mapSize;
     }
+    defaultMapGeneration = _intInRange(
+      saved['defaultMapGeneration'],
+      0,
+      kMapGenerationCount - 1,
+      defaultMapGeneration,
+    );
     defaultTempo = _intInRange(saved['defaultTempo'], 0, 2, defaultTempo);
     defaultSkill = _intInRange(saved['defaultSkill'], 0, 2, defaultSkill);
     defaultTeams = _boolOr(saved['defaultTeams'], defaultTeams);
+    defaultAllyVision = _boolOr(saved['defaultAllyVision'], defaultAllyVision);
     defaultDeathVision = _intInRange(
       saved['defaultDeathVision'],
       0,
@@ -236,6 +376,12 @@ class AppSettings extends ChangeNotifier {
       defaultFriendlyFire,
     );
     defaultRespawn = _boolOr(saved['defaultRespawn'], defaultRespawn);
+    defaultRespawnDelay = _intInRange(
+      saved['defaultRespawnDelay'],
+      kMinRespawnDelay,
+      kMaxRespawnDelay,
+      defaultRespawnDelay,
+    );
   }
 
   void _restoreStatistics(Map<String, Object?> saved) {
@@ -268,6 +414,11 @@ class AppSettings extends ChangeNotifier {
 
   static bool _boolOr(Object? value, bool fallback) =>
       value is bool ? value : fallback;
+
+  static double _doubleInRange(Object? value, double fallback) =>
+      value is num && value.isFinite
+      ? value.toDouble().clamp(0.0, 1.0).toDouble()
+      : fallback;
 
   static void _reportStorageError(Object error, StackTrace stackTrace) {
     FlutterError.reportError(

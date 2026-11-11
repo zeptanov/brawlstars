@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../game/constants.dart';
+
 class DiscoveredRoom {
   const DiscoveredRoom({
     required this.roomId,
@@ -10,6 +12,7 @@ class DiscoveredRoom {
     required this.players,
     required this.maxPlayers,
     required this.phase,
+    required this.protocolVersion,
     required this.lastSeen,
   });
 
@@ -21,7 +24,10 @@ class DiscoveredRoom {
   final int players;
   final int maxPlayers;
   final int phase;
+  final int protocolVersion;
   final DateTime lastSeen;
+
+  bool get protocolCompatible => protocolVersion == kProtocolVersion;
 
   String get endpoint => port == 47777 ? address : '$address:$port';
 }

@@ -263,7 +263,8 @@ class _UdpLink implements GameLink {
     });
     _watchdog = Timer.periodic(const Duration(seconds: 1), (_) {
       if (_lostReported) return;
-      if (DateTime.now().difference(_lastMessage) > const Duration(seconds: 8)) {
+      if (DateTime.now().difference(_lastMessage) >
+          const Duration(seconds: 8)) {
         _lostReported = true;
         if (!_controller.isClosed) {
           _controller.add(<String, dynamic>{'t': 'net', 's': 'lost'});
@@ -368,7 +369,6 @@ class _LanScanner implements RoomScanner {
     }
     if (message == null || '${message['t']}' != 'disc') return;
     final version = (message['ver'] as num?)?.toInt() ?? 0;
-    if (version != kProtocolVersion) return;
     final id = '${message['id'] ?? ''}';
     if (id.isEmpty) return;
     final roomPort = (message['port'] as num?)?.toInt() ?? kGamePort;
@@ -381,6 +381,7 @@ class _LanScanner implements RoomScanner {
       players: (message['players'] as num?)?.toInt() ?? 0,
       maxPlayers: (message['max'] as num?)?.toInt() ?? kMaxPlayers,
       phase: (message['phase'] as num?)?.toInt() ?? -1,
+      protocolVersion: version,
       lastSeen: DateTime.now(),
     );
     _byId[id] = room;

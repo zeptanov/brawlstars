@@ -79,5 +79,108 @@ void main() {
       server.startMatch();
       expect(server.sim?.respawn, isTrue);
     });
+
+    test('задержка возрождения настраивается и передаётся симуляции', () {
+      final messages = <Map<String, dynamic>>[];
+      final server = GameServer(roomName: 'T', hostName: 'Host');
+      addTearDown(server.dispose);
+      final hostId = server.addPeer(
+        name: 'Host',
+        local: true,
+        send: messages.add,
+      );
+      server.teams = true;
+      server.handleMessage(hostId, <String, dynamic>{
+        't': 'cmd',
+        'c': 'respawnDelay',
+        'n': 24,
+      });
+
+      final lobby = LobbyState.fromJson(
+        messages.lastWhere((message) => message['t'] == 'lobby'),
+      );
+      expect(lobby.respawnDelay, 24);
+
+      server.startMatch();
+      expect(server.sim?.respawnDelay, 24);
+    });
+
+    test(
+      'стартовые команды повторно синхронизируют состояние и идемпотентны',
+      () {
+        final messages = <Map<String, dynamic>>[];
+        final server = GameServer(roomName: 'T', hostName: 'Host');
+        addTearDown(server.dispose);
+        final hostId = server.addPeer(
+          name: 'Host',
+          local: true,
+          send: messages.add,
+        );
+        server.botCount = 1;
+
+        server.handleMessage(hostId, <String, dynamic>{
+          't': 'cmd',
+          'c': 'start',
+        });
+        final match = server.sim;
+        expect(match, isNotNull);
+        final lobby = messages.lastWhere((message) => message['t'] == 'lobby');
+        expect(lobby['started'], 1);
+        expect(lobby['seed'], match!.seed);
+        expect(LobbyState.fromJson(lobby).seed, match.seed);
+
+        server.handleMessage(hostId, <String, dynamic>{
+          't': 'cmd',
+          'c': 'start',
+        });
+        expect(identical(server.sim, match), isTrue);
+      },
+    );
+
+    test('настройка отображения поля зрения союзника доступна в лобби', () {
+      final messages = <Map<String, dynamic>>[];
+      final server = GameServer(roomName: 'T', hostName: 'Host');
+      addTearDown(server.dispose);
+      final hostId = server.addPeer(
+        name: 'Host',
+        local: true,
+        send: messages.add,
+      );
+      server.teams = true;
+      server.handleMessage(hostId, <String, dynamic>{
+        't': 'cmd',
+        'c': 'allyVision',
+        'n': 0,
+      });
+
+      final lobby = messages.lastWhere((message) => message['t'] == 'lobby');
+      expect(LobbyState.fromJson(lobby).allyVision, isFalse);
+    });
+
+    test('выбор генерации карты передаётся в лобби и матч', () {
+      final messages = <Map<String, dynamic>>[];
+      final server = GameServer(roomName: 'T', hostName: 'Host');
+      addTearDown(server.dispose);
+      final hostId = server.addPeer(
+        name: 'Host',
+        local: true,
+        send: messages.add,
+      );
+      server.botCount = 1;
+      server.handleMessage(hostId, <String, dynamic>{
+        't': 'cmd',
+        'c': 'generation',
+        'n': 2,
+      });
+
+      final lobby = LobbyState.fromJson(
+        messages.lastWhere((message) => message['t'] == 'lobby'),
+      );
+      expect(lobby.mapGeneration, 2);
+
+      server.startMatch();
+      expect(server.sim?.mapGeneration, 2);
+      expect(messages.lastWhere((message) => message['t'] == 'w')['mg'], 2);
+    });
   });
 }

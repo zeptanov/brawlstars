@@ -1,5 +1,9 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+
+import '../app/game_audio.dart';
 import '../app/room.dart';
 import '../app/settings.dart';
 import '../app/theme.dart';
@@ -20,10 +24,18 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final AppSettings _settings = AppSettings.instance;
+  final GameAudio _audio = GameAudio.instance;
+  late final Future<PackageInfo> _appInfo = PackageInfo.fromPlatform();
   late final TextEditingController _nickController = TextEditingController(
     text: _settings.nickname,
   );
   String? _busy;
+
+  @override
+  void initState() {
+    super.initState();
+    _audio.bind(_settings);
+  }
 
   @override
   void dispose() {
@@ -42,6 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _createRoom() async {
+    unawaited(_audio.playUi());
     if (!transport.lanSupported) {
       _toast(
         'LAN-режим работает в приложениях на ПК и телефоне, не в браузере.',
@@ -52,7 +65,21 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _busy = 'Создаём комнату...');
     Room? room;
     try {
-      room = await Room.host(nickname: nickname);
+      room = await Room.host(
+        nickname: nickname,
+        botCount: _settings.lastLobbyBotCount,
+        mapSize: _settings.defaultMapSize,
+        mapGeneration: _settings.defaultMapGeneration,
+        tempo: _settings.defaultTempo,
+        skill: _settings.defaultSkill,
+        teams: _settings.defaultTeams,
+        deathVision: _settings.defaultDeathVision,
+        loot: _settings.defaultLoot,
+        friendlyFire: _settings.defaultFriendlyFire,
+        respawn: _settings.defaultRespawn,
+        respawnDelay: _settings.defaultRespawnDelay,
+        allyVision: _settings.defaultAllyVision,
+      );
       if (!mounted) {
         await room.close();
         return;
@@ -73,6 +100,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _practice() async {
+    unawaited(_audio.playUi());
     final nickname = _nickname();
     setState(() => _busy = 'Готовим арену...');
     Room? room;
@@ -81,6 +109,7 @@ class _HomeScreenState extends State<HomeScreen> {
         nickname: nickname,
         bots: _settings.defaultBots,
         mapSize: _settings.defaultMapSize,
+        mapGeneration: _settings.defaultMapGeneration,
         tempo: _settings.defaultTempo,
         skill: _settings.defaultSkill,
         teams: _settings.defaultTeams,
@@ -88,6 +117,8 @@ class _HomeScreenState extends State<HomeScreen> {
         loot: _settings.defaultLoot,
         friendlyFire: _settings.defaultFriendlyFire,
         respawn: _settings.defaultRespawn,
+        respawnDelay: _settings.defaultRespawnDelay,
+        allyVision: _settings.defaultAllyVision,
       );
       if (!mounted) {
         await room.close();
@@ -109,6 +140,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _findRoom() async {
+    unawaited(_audio.playUi());
     if (!transport.lanSupported) {
       _toast(
         'Поиск комнат работает в нативных приложениях на одной Wi-Fi сети.',
@@ -135,6 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openSettings() {
+    unawaited(_audio.playUi());
     showNeonSheet(
       context: context,
       title: 'Настройки',
@@ -146,6 +179,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openHelp() {
+    unawaited(_audio.playUi());
     Navigator.of(context)
         .push(MaterialPageRoute<void>(builder: (_) => const GuideScreen()));
   }
@@ -274,7 +308,7 @@ class _HomeScreenState extends State<HomeScreen> {
           NeonButton(
             label: 'Тренировка с ботами',
             subtitle:
-                '${_settings.defaultBots} ботов · ${_mapLabel(_settings.defaultMapSize)}',
+                '${_settings.defaultBots} ботов · ${_mapLabel(_settings.defaultMapSize)} · ${kMapGenerationNames[_settings.defaultMapGeneration]}',
             icon: Icons.smart_toy_outlined,
             accent: Palette.gold,
             onPressed: _busy == null ? _practice : null,
@@ -306,6 +340,27 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+          FutureBuilder<PackageInfo>(
+            future: _appInfo,
+            builder: (context, snapshot) {
+              final version = snapshot.data;
+              final appVersion = snapshot.hasError
+                  ? '1.4.0+5'
+                  : version == null
+                  ? '...'
+                  : '${version.version}+${version.buildNumber}';
+              return Text(
+                'Версия $appVersion  ·  протокол $kProtocolVersion',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 10,
+                  letterSpacing: 0.4,
+                  color: Palette.mutedDark,
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -694,6 +749,45 @@ class _SettingsBody extends StatelessWidget {
           value: settings.screenShake,
           onChanged: settings.setScreenShake,
         ),
+        const SizedBox(height: 18),
+        const Divider(height: 1),
+        const SizedBox(height: 16),
+        const SectionLabel('Звук'),
+        const SizedBox(height: 10),
+        _ToggleRow(
+          title: 'Включить звук',
+          subtitle: settings.soundEnabled
+              ? 'Звуки игры включены'
+              : 'По умолчанию звук выключен',
+          value: settings.soundEnabled,
+          onChanged: settings.setSoundEnabled,
+        ),
+        const SizedBox(height: 8),
+        _AudioVolumeRow(
+          label: 'Музыка',
+          value: settings.musicVolume,
+          onChanged: settings.setMusicVolume,
+        ),
+        _AudioVolumeRow(
+          label: 'Оружие',
+          value: settings.weaponVolume,
+          onChanged: settings.setWeaponVolume,
+        ),
+        _AudioVolumeRow(
+          label: 'Взрывы и урон',
+          value: settings.explosionVolume,
+          onChanged: settings.setExplosionVolume,
+        ),
+        _AudioVolumeRow(
+          label: 'Бонусы и возрождение',
+          value: settings.pickupVolume,
+          onChanged: settings.setPickupVolume,
+        ),
+        _AudioVolumeRow(
+          label: 'Интерфейс',
+          value: settings.uiVolume,
+          onChanged: settings.setUiVolume,
+        ),
         const SizedBox(height: 20),
         const Divider(height: 1),
         const SizedBox(height: 16),
@@ -733,6 +827,17 @@ class _SettingsBody extends StatelessWidget {
                   settings.setDefaultBots(settings.defaultBots + 1),
             ),
           ],
+        ),
+        const SizedBox(height: 14),
+        const Text(
+          'Генерация карты',
+          style: TextStyle(fontSize: 13, color: Palette.muted),
+        ),
+        const SizedBox(height: 8),
+        SegmentedOptions(
+          options: kMapGenerationNames,
+          selected: settings.defaultMapGeneration,
+          onChanged: (value) => settings.setDefaultMapGeneration(value),
         ),
         const SizedBox(height: 14),
         const Text(
@@ -780,6 +885,20 @@ class _SettingsBody extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         const Text(
+          'Поле зрения союзника',
+          style: TextStyle(fontSize: 13, color: Palette.muted),
+        ),
+        const SizedBox(height: 8),
+        SegmentedOptions(
+          options: const <String>['Выкл', 'Вкл'],
+          selected: settings.defaultAllyVision ? 1 : 0,
+          enabled: settings.defaultTeams,
+          onChanged: settings.defaultTeams
+              ? (i) => settings.setDefaultAllyVision(i == 1)
+              : null,
+        ),
+        const SizedBox(height: 14),
+        const Text(
           'Мёртвые видят',
           style: TextStyle(fontSize: 13, color: Palette.muted),
         ),
@@ -818,11 +937,36 @@ class _SettingsBody extends StatelessWidget {
         _ToggleRow(
           title: 'Возрождение союзников',
           subtitle: settings.defaultTeams
-              ? 'Возврат через ${kRespawnDelay.toInt()} секунд, пока союзник жив'
+              ? 'Возврат через ${settings.defaultRespawnDelay} секунд, пока союзник жив'
               : 'Доступно только в командном режиме',
           value: settings.defaultRespawn,
           onChanged: settings.defaultTeams ? settings.setDefaultRespawn : null,
         ),
+        if (settings.defaultTeams && settings.defaultRespawn) ...<Widget>[
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: <Widget>[
+              const Text(
+                'Время до возрождения',
+                style: TextStyle(fontSize: 12, color: Palette.muted),
+              ),
+              Text(
+                '${settings.defaultRespawnDelay} сек.',
+                style: const TextStyle(fontSize: 12, color: Palette.accent),
+              ),
+            ],
+          ),
+          Slider(
+            min: kMinRespawnDelay.toDouble(),
+            max: kMaxRespawnDelay.toDouble(),
+            divisions: kMaxRespawnDelay - kMinRespawnDelay,
+            value: settings.defaultRespawnDelay.toDouble(),
+            label: '${settings.defaultRespawnDelay} сек.',
+            onChanged: (value) =>
+                settings.setDefaultRespawnDelay(value.round()),
+          ),
+        ],
       ],
     );
   }
@@ -875,6 +1019,50 @@ class _ToggleRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AudioVolumeRow extends StatelessWidget {
+  const _AudioVolumeRow({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final double value;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        SizedBox(
+          width: 142,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: Palette.muted),
+          ),
+        ),
+        Expanded(
+          child: Slider(
+            min: 0,
+            max: 1,
+            divisions: 20,
+            value: value,
+            onChanged: onChanged,
+          ),
+        ),
+        SizedBox(
+          width: 34,
+          child: Text(
+            '${(value * 100).round()}%',
+            textAlign: TextAlign.end,
+            style: const TextStyle(fontSize: 10, color: Palette.mutedDark),
+          ),
+        ),
+      ],
     );
   }
 }

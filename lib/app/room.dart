@@ -44,8 +44,38 @@ class Room {
     return port == kGamePort ? address : '$address:$port';
   }
 
-  static Future<Room> host({required String nickname}) async {
+  static Future<Room> host({
+    required String nickname,
+    int botCount = 0,
+    int mapSize = kDefaultMapSize,
+    int mapGeneration = 0,
+    int tempo = 1,
+    int skill = 1,
+    bool teams = false,
+    int deathVision = 1,
+    int loot = 1,
+    bool friendlyFire = false,
+    bool respawn = false,
+    int respawnDelay = kDefaultRespawnDelay,
+    bool allyVision = true,
+  }) async {
     final server = GameServer(roomName: 'Логово $nickname', hostName: nickname);
+    server
+      ..botCount = botCount.clamp(0, 7)
+      ..mapSize = kMapSizes.contains(mapSize) ? mapSize : kDefaultMapSize
+      ..mapGeneration = mapGeneration.clamp(0, kMapGenerationCount - 1)
+      ..tempo = tempo.clamp(0, 2)
+      ..skill = skill.clamp(0, 2)
+      ..teams = teams
+      ..deathVision = deathVision.clamp(0, 1)
+      ..loot = loot.clamp(0, 2)
+      ..friendlyFire = friendlyFire
+      ..respawn = respawn
+      ..allyVision = allyVision;
+    server.respawnDelay = respawnDelay.clamp(
+      kMinRespawnDelay,
+      kMaxRespawnDelay,
+    );
     LanHostHandle? handle;
     GameClient? client;
     try {
@@ -74,6 +104,7 @@ class Room {
     required String nickname,
     required int bots,
     required int mapSize,
+    int mapGeneration = 0,
     required int tempo,
     required int skill,
     bool teams = false,
@@ -81,6 +112,8 @@ class Room {
     int loot = 1,
     bool friendlyFire = false,
     bool respawn = false,
+    int respawnDelay = kDefaultRespawnDelay,
+    bool allyVision = true,
   }) async {
     final server = GameServer(
       roomName: 'Тренировка',
@@ -89,6 +122,7 @@ class Room {
     );
     server.botCount = bots.clamp(1, 7);
     server.mapSize = kMapSizes.contains(mapSize) ? mapSize : kDefaultMapSize;
+    server.mapGeneration = mapGeneration.clamp(0, kMapGenerationCount - 1);
     server.tempo = tempo.clamp(0, 2);
     server.skill = skill.clamp(0, 2);
     server.teams = teams;
@@ -96,6 +130,11 @@ class Room {
     server.loot = loot.clamp(0, 2);
     server.friendlyFire = friendlyFire;
     server.respawn = respawn;
+    server.allyVision = allyVision;
+    server.respawnDelay = respawnDelay.clamp(
+      kMinRespawnDelay,
+      kMaxRespawnDelay,
+    );
 
     GameClient? client;
     try {
